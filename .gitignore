@@ -1,0 +1,5 @@
+*.swp
+*.native
+*.byte
+f2bdd
+_build/
