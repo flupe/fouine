@@ -10,7 +10,10 @@
 %token PLUS MINUS MULT OR AND LT GT LEQ GEQ EQ NOT NEQ
 
 %start main
+
 %type <Expr.expr> main
+%type <Expr.expr> expr
+%type <string list> list_of_idents
 
 %left ELSE IN
 %left PRINT
@@ -25,6 +28,10 @@
 main:
   | expr DELIM { $1 }
 
+list_of_idents:
+  | IDENT { [$1] }
+  | list_of_idents IDENT { $2 :: $1 }
+
 expr:
   | LPAREN expr RPAREN { $2 }
 
@@ -34,6 +41,10 @@ expr:
 
   | LET IDENT EQ expr IN expr { Let($2, $4, $6) }
   | LET IDENT IDENT EQ expr IN expr { Let($2, Fun($3, $5), $7) }
+
+  | LET IDENT list_of_idents EQ expr IN expr {
+      Let ($2, List.fold_left (fun e x -> Fun(x, e)) $5 $3, $7)
+    }
 
   | FUN IDENT ARROW expr { Fun($2, $4) }
 

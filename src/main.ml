@@ -4,7 +4,7 @@ let _ =
   try
     Lexing.from_channel stdin
     |> Parser.main Lexer.token
-    |> ignore
+    |> Expr.print
   with _ ->
     print_endline "SYNTAX ERROR FDP"
 

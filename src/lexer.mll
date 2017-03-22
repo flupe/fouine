@@ -3,6 +3,9 @@
   exception Eof
 }
 
+let blank = [' ' '\r' '\t']
+let digit = ['0'-'9']
+
 rule token = parse
   | "true" { TRUE }
   | "false" { FALSE }
@@ -35,8 +38,8 @@ rule token = parse
 
   | ";;" { DELIM }
 
-  | [' ' '\t'] { token lexbuf }
-  | ['0'-'9']+ as s { INT(int_of_string s) }
+  | digit+ as s { INT(int_of_string s) }
   | ['_' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9' '\'']* as i { IDENT(i) }
+  | blank { token lexbuf }
 
   | eof  { raise Eof }
