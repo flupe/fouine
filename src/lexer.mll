@@ -4,8 +4,9 @@
 }
 
 rule token = parse
+  | [' ' '\t' '\n'] { token lexbuf }
   | ['0'-'9']+ as s { INT(int_of_string s) }
-  | ['a'-'z']['A'-'Z''a'-'z''0'-'9']* as i { IDENT(i) }
+  | ['_' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9' '\'']* as i { IDENT(i) }
   | "true" { TRUE }
   | "false" { FALSE }
 
@@ -29,12 +30,12 @@ rule token = parse
   | "&&" { AND }
   | "||" { OR }
 
-  | '=' { EQ }
   | "<>" { NEQ }
-  | '<' { LT }
-  | '>' { GT }
   | "<=" { LEQ }
   | ">=" { GEQ }
+  | '=' { EQ }
+  | '<' { LT }
+  | '>' { GT }
 
   | ";;" { DELIM }
 

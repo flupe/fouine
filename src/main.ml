@@ -6,5 +6,5 @@ let _ =
     |> Parser.main Lexer.token
     |> ignore
   with _ ->
-    print_string "SYNTAX ERROR FDP"
+    print_endline "SYNTAX ERROR FDP"
 
