@@ -7,8 +7,6 @@ let blank = [' ' '\r' '\t']
 let digit = ['0'-'9']
 
 rule token = parse
-  | "true" { TRUE }
-  | "false" { FALSE }
   | "let" { LET }
   | "fun" { FUN }
   | "in" { IN }
@@ -20,7 +18,7 @@ rule token = parse
   | "->" { ARROW }
   | "print" { PRINT }
   | "&&" { AND }
-  | "&&" { OR }
+  | "||" { OR }
 
   | "<>" { NEQ }
   | "<=" { LEQ }

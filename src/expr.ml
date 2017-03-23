@@ -6,9 +6,7 @@ type identifier =
 
 (* values that may not be altered by the program *)
 type constant =
-  | Bool of bool
-  | Int of int
-  | Unit
+  int
 
 type unary_op =
   | Not
@@ -56,17 +54,18 @@ type expr =
   | Print of expr
 
 let rec escape e =
-  print_string "(";
-  print_expr e;
-  print_string ")";
+  match e with
+  | Constant _
+  | Var _ ->
+      print_expr e
+  | _ -> 
+    print_string "(";
+    print_expr e;
+    print_string ")"
 
 and print_expr = function
-  | Constant c -> begin
-      match c with 
-      | Bool b -> print_string (if b then "true" else "false")
-      | Int i -> print_int i
-      | Unit -> print_string "()"
-    end
+  | Constant i ->
+      print_int i
 
   | BinaryOp (op, l, r) ->
       escape l;
