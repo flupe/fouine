@@ -56,8 +56,10 @@ type expr =
 let rec escape e =
   match e with
   | Constant _
-  | Var _ ->
+  | Var _
+  | Call _ ->
       print_expr e
+
   | _ -> 
     print_string "(";
     print_expr e;

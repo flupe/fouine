@@ -4,7 +4,6 @@
 
 %token <string> IDENT
 %token <int> INT
-%token TRUE FALSE
 %token LPAREN RPAREN
 %token LET IN IF THEN ELSE DELIM FUN ARROW PRINT EOL REC
 %token PLUS MINUS MULT OR AND LT GT LEQ GEQ EQ NOT NEQ
@@ -40,7 +39,7 @@ expr:
     }
 
   | FUN IDENT list_of_idents ARROW expr {
-      Fun($2, List.fold_left (fun e x -> Fun(x, e)) $5 $3)
+      Fun ($2, List.fold_left (fun e x -> Fun(x, e)) $5 $3)
     }
 
   | IF expr THEN expr ELSE expr { IfThenElse($2, $4, $6) }
