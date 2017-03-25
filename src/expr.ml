@@ -1,14 +1,15 @@
+open Print
 (* valid identifiers of our lang
  * they must respect a defined format, but this should be handled
  * during tokenisation *)
 type identifier =
   string
 
-type unary_op =
-  | Not
+type unary_op
+  = Not
 
-type binary_op =
-  | Plus
+type binary_op
+  = Plus
   | Minus
   | Mult
   | Or
@@ -27,14 +28,14 @@ module Env = Map.Make(struct
 end)
 
 (* values that may not be altered by the program *)
-type constant =
-  | Int of int
+type constant
+  = Int of int
   | Bool of bool
   | Closure of identifier * expr * constant Env.t
   | Unit
 
-and expr =
-  | Constant of constant
+and expr
+  = Constant of constant
   | BinaryOp of binary_op * expr * expr
   | UnaryOp of unary_op * expr
   | Var of identifier
@@ -46,6 +47,7 @@ and expr =
   | Raise of expr
   | TryWith of expr * identifier * expr
   | Fun of identifier * expr
+
 
 let string_of_binary_op = function
   | Plus -> " + "
@@ -66,24 +68,24 @@ let string_of_unary_op = function
 
 let rec escape e =
   match e with
+  | Constant _
   | Var _ ->
       print_expr e
-
-  | _ -> 
-    print_string "(";
-    print_expr e;
-    print_string ")"
+  | _ ->
+      print_string "(";
+      print_expr e;
+      print_string ")"
 
 and print_expr = function
   | Constant c -> begin
       match c with
-      | Int i -> print_int i
-      | Unit -> print_string "()"
-      | Bool b -> print_string @@ if b then "true" else "false"
+      | Int i -> print_string @@ green @@ string_of_int i
+      | Unit -> print_string @@ magenta "()"
+      | Bool b -> print_string @@ yellow (if b then "true" else "false")
       | Closure (id, fn, _) ->
-          print_string @@ "fun " ^ id ^ " -> ";
+          print_string @@ "(" ^ blue "closure " ^ id ^ " -> ";
           escape fn;
-          print_newline ()
+          print_string ")";
     end
 
   | BinaryOp (op, l, r) ->
@@ -95,27 +97,27 @@ and print_expr = function
       print_string @@ string_of_unary_op op;
       escape r
 
-  | Var id -> print_string id
+  | Var id -> print_string @@ cyan id
 
   | IfThenElse (cond, l, r) ->
-      print_string "if ";
+      print_string @@ red "if ";
       escape cond;
-      print_string " then ";
+      print_string @@ red " then\n";
       escape l;
-      print_string " else ";
+      print_string @@ red "\nelse\n";
       escape r
 
   | Let (id, v, e) ->
-      print_string @@ "let " ^ id ^ " = ";
-      escape v;
-      print_string " in ";
-      escape e
+      print_string @@ red "let " ^ yellow id ^ " = ";
+      print_expr v;
+      print_string @@ red " in\n";
+      print_expr e
 
   | LetRec (id, v, e) ->
-      print_string @@ "let rec " ^ id ^ " = ";
-      escape v;
-      print_string " in ";
-      escape e
+      print_string @@ red "let rec " ^ yellow id ^ " = ";
+      print_expr v;
+      print_string @@ red " in\n";
+      print_expr e
 
   | Call (fn, x) ->
       escape fn;
@@ -123,20 +125,31 @@ and print_expr = function
       escape x
 
   | TryWith (fn, e, fail) ->
-      print_string @@ "try ";
+      print_string @@ red "try\n";
       escape fn;
-      print_string @@ " with E " ^ e ^ " -> ";
+      print_string @@ red " with " ^ blue "E " ^ e ^ " ->\n";
       escape fail
 
   | Raise e ->
-      print_string "raise ";
+      print_string @@ red "raise ";
       escape e
 
   | Fun (id, fn) ->
-      print_string @@ "fun " ^ id ^ " -> ";
-      escape fn;
-      print_newline ()
+      print_string @@ blue "fun " ^ yellow id ^ " -> ";
+      print_expr fn
 
 let print e =
   print_expr e;
   print_endline ";;"
+
+let print_constant = function
+  | Int i ->
+      print_endline @@ "- " ^ green "int" ^ " : " ^ string_of_int i
+
+  | Bool b ->
+      print_endline @@ "- " ^ yellow "bool" ^ " : " ^ (if b then "true" else "false")
+
+  | Closure (id, e, _) ->
+      print_endline @@ "- " ^ blue "fun" ^ " : " ^ yellow id ^ " -> expr"
+
+  | Unit -> print_endline @@ "- " ^ magenta "unit" ^ " : ()"
