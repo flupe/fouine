@@ -4,14 +4,8 @@
 type identifier =
   string
 
-(* values that may not be altered by the program *)
-type constant =
-  | Int of int
-  | Unit
-
 type unary_op =
   | Not
-  | Print
 
 type binary_op =
   | Plus
@@ -25,18 +19,27 @@ type binary_op =
   | Geq
   | Eq
   | Neq
+  | SetRef (* good idea? *)
 
-type expr =
+(* values that may not be altered by the program *)
+type constant =
+  | Int of int
+  | Bool of bool
+  | Fun of identifier * expr
+  | Unit
+
+and expr =
   | Constant of constant
   | BinaryOp of binary_op * expr * expr
   | UnaryOp of unary_op * expr
   | Var of identifier
   (* anonymous function, the id refers to the name of the only parameter *)
-  | Fun of identifier * expr
   | IfThenElse of expr * expr * expr
   | Let of identifier * expr * expr
   | LetRec of identifier * expr * expr
   | Call of expr * expr
+  | Raise of expr
+  | TryWith of expr * identifier * expr
 
 let string_of_binary_op = function
   | Plus -> " + "
@@ -50,14 +53,13 @@ let string_of_binary_op = function
   | Geq -> " >= "
   | Eq -> " = "
   | Neq -> " <> "
+  | SetRef -> " := "
 
 let string_of_unary_op = function
   | Not -> "not "
-  | Print -> "prInt "
 
 let rec escape e =
   match e with
-  | Constant _
   | Var _ ->
       print_expr e
 
@@ -71,6 +73,11 @@ and print_expr = function
       match c with
       | Int i -> print_int i
       | Unit -> print_string "()"
+      | Bool b -> print_string @@ if b then "true" else "false"
+      | Fun (id, fn) ->
+          print_string @@ "fun " ^ id ^ " -> ";
+          escape fn;
+          print_newline ()
     end
 
   | BinaryOp (op, l, r) ->
@@ -83,10 +90,6 @@ and print_expr = function
       escape r
 
   | Var id -> print_string id
-
-  | Fun (id, fn) ->
-      print_string @@ "fun " ^ id ^ " -> ";
-      escape fn
 
   | IfThenElse (cond, l, r) ->
       print_string "if ";
@@ -112,6 +115,16 @@ and print_expr = function
       escape fn;
       print_string " ";
       escape x
+
+  | TryWith (fn, e, fail) ->
+      print_string @@ "try ";
+      escape fn;
+      print_string @@ " with E " ^ e ^ " -> ";
+      escape fail
+
+  | Raise e ->
+      print_string "raise ";
+      escape e
 
 let print e =
   print_expr e;
