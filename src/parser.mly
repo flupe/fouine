@@ -34,6 +34,8 @@ list_of_idents:
   | list_of_idents IDENT { $2 :: $1 }
 
 expr:
+  | { Constant Unit }
+
   | LET IDENT list_of_idents EQ expr IN expr {
       Let ($2, List.fold_left (fun e x -> Fun(x, e)) $5 $3, $7)
     }
@@ -44,8 +46,7 @@ expr:
 
   | IF expr THEN expr ELSE expr { IfThenElse($2, $4, $6) }
 
-  | PRINT expr { Print $2 }
-
+  | PRINT expr      { UnaryOp(Print, $2) }
   | NOT expr        { UnaryOp(Not, $2) }
   | expr PLUS expr  { BinaryOp(Plus, $1, $3) }
   | expr MINUS expr { BinaryOp(Minus, $1, $3) }
@@ -67,7 +68,7 @@ func:
 
 enclosed:
   | LPAREN expr RPAREN { $2 }
-  | INT   { Constant $1 }
+  | INT   { Constant (Int $1) }
   | IDENT { Var $1 }
 
 

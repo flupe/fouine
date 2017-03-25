@@ -3,7 +3,7 @@
   exception Eof
 }
 
-let blank = [' ' '\r' '\t']
+let blank = [' ' '\r' '\t' '\n']
 let digit = ['0'-'9']
 
 rule token = parse
@@ -16,7 +16,7 @@ rule token = parse
   | "rec" { REC }
   | "not" { NOT }
   | "->" { ARROW }
-  | "print" { PRINT }
+  | "prInt" { PRINT }
   | "&&" { AND }
   | "||" { OR }
 
@@ -40,4 +40,4 @@ rule token = parse
   | ['_' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9' '\'']* as i { IDENT(i) }
   | blank { token lexbuf }
 
-  | eof  { raise Eof }
+  | eof  { DELIM }

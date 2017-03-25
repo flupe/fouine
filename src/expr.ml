@@ -6,10 +6,12 @@ type identifier =
 
 (* values that may not be altered by the program *)
 type constant =
-  int
+  | Int of int
+  | Unit
 
 type unary_op =
   | Not
+  | Print
 
 type binary_op =
   | Plus
@@ -23,6 +25,18 @@ type binary_op =
   | Geq
   | Eq
   | Neq
+
+type expr =
+  | Constant of constant
+  | BinaryOp of binary_op * expr * expr
+  | UnaryOp of unary_op * expr
+  | Var of identifier
+  (* anonymous function, the id refers to the name of the only parameter *)
+  | Fun of identifier * expr
+  | IfThenElse of expr * expr * expr
+  | Let of identifier * expr * expr
+  | LetRec of identifier * expr * expr
+  | Call of expr * expr
 
 let string_of_binary_op = function
   | Plus -> " + "
@@ -39,25 +53,12 @@ let string_of_binary_op = function
 
 let string_of_unary_op = function
   | Not -> "not "
-
-type expr =
-  | Constant of constant
-  | BinaryOp of binary_op * expr * expr
-  | UnaryOp of unary_op * expr
-  | Var of identifier
-  (* anonymous function, the identifier refers to the name of the only parameter *)
-  | Fun of identifier * expr
-  | IfThenElse of expr * expr * expr
-  | Let of identifier * expr * expr
-  | LetRec of identifier * expr * expr
-  | Call of expr * expr
-  | Print of expr
+  | Print -> "prInt "
 
 let rec escape e =
   match e with
   | Constant _
-  | Var _
-  | Call _ ->
+  | Var _ ->
       print_expr e
 
   | _ -> 
@@ -66,8 +67,11 @@ let rec escape e =
     print_string ")"
 
 and print_expr = function
-  | Constant i ->
-      print_int i
+  | Constant c -> begin
+      match c with
+      | Int i -> print_int i
+      | Unit -> print_string "()"
+    end
 
   | BinaryOp (op, l, r) ->
       escape l;
@@ -108,10 +112,6 @@ and print_expr = function
       escape fn;
       print_string " ";
       escape x
-
-  | Print fn ->
-      print_string "prInt ";
-      escape fn
 
 let print e =
   print_expr e;

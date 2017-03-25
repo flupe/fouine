@@ -1,2 +1,3 @@
 all:
-	ocamlbuild -yaccflag -v -lib unix src/main.native;
+	ocamlbuild -yaccflag -v -lib unix src/main.native
+	mv main.native fouine
