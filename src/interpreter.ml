@@ -1,10 +1,5 @@
 open Expr
 
-module Env = Map.Make(struct
-  type t = identifier
-  let compare = Pervasives.compare
-end)
-
 exception InterpretationError
 
 (* eval : expr -> constant *)
@@ -49,6 +44,7 @@ let eval e =
         | Bool b ->
             if op = Not then Bool (not b)
             else raise InterpretationError
+
         | _ -> raise InterpretationError
       end
 
@@ -57,18 +53,29 @@ let eval e =
           Env.find id env
         else raise InterpretationError
 
+    | IfThenElse (cond, truthy, falsy) -> begin
+        let c = step env cond in
+        match c with
+        | Bool b ->
+            if b then step env truthy
+            else step env falsy
+        | _ -> raise InterpretationError
+      end
+
     | Let (id, e, fn) ->
         let c = step env e in
         let env' = Env.add id c env in
         step env' fn
 
+    | Fun (id, e) -> Closure (id, e, env)
+
     | Call (e, x) -> begin
         let fc = step env e in
         match fc with
-        | Fun (id, fn) ->
+        | Closure (id, fn, env) ->
             let v = step env x in
             let env' = Env.add id v env in
-            step env' e
+            step env' fn
 
         | _ -> raise InterpretationError
       end

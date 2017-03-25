@@ -21,11 +21,16 @@ type binary_op =
   | Neq
   | SetRef (* good idea? *)
 
+module Env = Map.Make(struct
+  type t = identifier
+  let compare = Pervasives.compare
+end)
+
 (* values that may not be altered by the program *)
 type constant =
   | Int of int
   | Bool of bool
-  | Fun of identifier * expr
+  | Closure of identifier * expr * constant Env.t
   | Unit
 
 and expr =
@@ -40,6 +45,7 @@ and expr =
   | Call of expr * expr
   | Raise of expr
   | TryWith of expr * identifier * expr
+  | Fun of identifier * expr
 
 let string_of_binary_op = function
   | Plus -> " + "
@@ -74,7 +80,7 @@ and print_expr = function
       | Int i -> print_int i
       | Unit -> print_string "()"
       | Bool b -> print_string @@ if b then "true" else "false"
-      | Fun (id, fn) ->
+      | Closure (id, fn, _) ->
           print_string @@ "fun " ^ id ^ " -> ";
           escape fn;
           print_newline ()
@@ -125,6 +131,11 @@ and print_expr = function
   | Raise e ->
       print_string "raise ";
       escape e
+
+  | Fun (id, fn) ->
+      print_string @@ "fun " ^ id ^ " -> ";
+      escape fn;
+      print_newline ()
 
 let print e =
   print_expr e;

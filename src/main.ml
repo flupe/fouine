@@ -10,7 +10,7 @@ let _ =
       match Interpreter.eval prog with
       | Int i -> print_endline @@ "int : " ^ string_of_int i
       | Bool b -> print_endline @@ "bool : " ^ (if b then "true" else "false")
-      | Fun (id, e) ->
+      | Closure (id, e, env) ->
           print_string @@ "fun : " ^ id ^ " -> ";
           print_expr e;
           print_newline ()

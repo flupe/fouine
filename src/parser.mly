@@ -17,7 +17,7 @@
 %type <Expr.expr> expr
 %type <string list> list_of_idents
 
-%left ELSE
+%nonassoc ELSE
 %right SEMI
 %right IN
 %right ARROW
@@ -41,15 +41,15 @@ expr:
   | { Constant Unit }
 
   | LET IDENT list_of_idents EQ expr IN expr {
-      Let ($2, List.fold_left (fun e x -> Constant (Fun (x, e))) $5 $3, $7)
+      Let ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3, $7)
     }
 
   | FUN IDENT list_of_idents ARROW expr {
-      Constant (Fun ($2, List.fold_left (fun e x -> Constant (Fun (x, e))) $5 $3))
+      Fun ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3)
     }
 
   | IF expr THEN expr ELSE expr { IfThenElse ($2, $4, $6) }
-  | IF expr THEN expr { IfThenElse ($2, $4, Constant Unit) }
+  /* | IF expr THEN expr { IfThenElse ($2, $4, Constant Unit) } */
 
   | TRY expr WITH E IDENT ARROW expr { TryWith ($2, $5, $7) }
   | RAISE enclosed { Raise $2 }
