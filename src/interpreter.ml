@@ -15,6 +15,16 @@ type constant
   | CClosure of Ast.identifier * Ast.t * constant Env.t
   | CUnit
 
+let rec equal_types a b =
+  match a, b with
+  | CInt _, CInt _
+  | CBool _, CBool _
+  | CClosure _, CClosure _
+  | CUnit, CUnit -> true
+  | CRef ra, CRef rb ->
+      equal_types !ra !rb
+  | _ -> false
+
 (* eval : expr -> constant *)
 let eval e =
   let env = Env.empty in
@@ -53,10 +63,12 @@ let eval e =
           end
 
         | CRef r, _ ->
-            if op = SetRef then begin
-              r := rc;
-              CUnit
-            end
+            if op = SetRef then
+              (* references cannot change type *)
+              if equal_types rc !r then begin
+                r := rc;
+                CUnit
+              end else raise InterpretationError
             else raise InterpretationError
 
         | _ -> raise InterpretationError
@@ -128,19 +140,20 @@ let eval e =
 
   step env e
 
-let get_type = function
+let rec get_type = function
   | CInt _ -> green "int"
   | CBool _ -> yellow "bool"
-  | CRef r -> red "ref"
+  (* we enforce non-cyclic references so it can't loop forever *)
+  | CRef r -> get_type !r ^ red " ref"
   | CClosure _ -> blue "fun"
   | CUnit -> magenta "unit"
 
 let print_result e =
   let typ = get_type e in
-  let print txt = print_endline @@ "- " ^ txt in
+  let print txt = print_endline @@ "- " ^ typ ^ " : " ^ txt in
   match e with
-  | CInt i -> print @@ typ ^ " : " ^ string_of_int i
-  | CBool b -> print @@ typ ^ " : " ^ (if b then "true" else "false")
-  | CRef r -> print @@ get_type !r ^ " " ^ typ
-  | CClosure (id, _, _) -> print @@ typ ^ " : " ^ yellow id ^ " -> ast"
-  | CUnit -> print @@ typ ^ " : ()"
+  | CInt i -> print (string_of_int i)
+  | CBool b -> print (if b then "true" else "false")
+  | CRef r -> print "-"
+  | CClosure (id, _, _) -> print (yellow id ^ " -> ast")
+  | CUnit -> print "()"
