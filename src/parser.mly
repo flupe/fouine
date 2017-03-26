@@ -8,6 +8,7 @@
 %token LET IN IF THEN ELSE DELIM FUN ARROW PRINT REC
 %token PLUS MINUS MULT OR AND LT GT LEQ GEQ EQ NOT NEQ
 
+%token TRUE FALSE
 %token TRY WITH RAISE E
 %token REF SETREF BANG
 
@@ -28,7 +29,7 @@
 
 %nonassoc NOT LET IF THEN DELIM FUN INT SETREF
 %nonassoc LPAREN RPAREN LT GT LEQ GEQ EQ NEQ IDENT
-%nonassoc BEGIN END
+%nonassoc BEGIN END TRUE FALSE
 
 %%
 
@@ -86,4 +87,8 @@ enclosed:
   | INT   { Constant (Int $1) }
   | BANG enclosed { Deref ($2) }
   | IDENT { Var $1 }
+  | boolean { $1 }
 
+boolean:
+  | TRUE { Constant (Bool true) }
+  | FALSE { Constant (Bool false) }

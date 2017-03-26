@@ -12,6 +12,8 @@ rule token = parse
   | "let" { LET }
   | "fun" { FUN }
   | "in" { IN }
+  | "true" { TRUE }
+  | "false" { FALSE }
   | "if" { IF }
   | "then" { THEN }
   | "else" { ELSE }
