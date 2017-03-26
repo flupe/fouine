@@ -2,12 +2,13 @@ open Expr
 open Print
 
 let _ =
-  let prog = 
+  let prog =
     try
       Lexing.from_channel stdin
       |> Parser.main Lexer.token
     with _ ->
-       failwith @@ "syntax error"
+      print_endline "syntax error";
+      exit 1;
   in
   print prog;
   try

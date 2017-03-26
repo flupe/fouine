@@ -9,7 +9,7 @@
 %token PLUS MINUS MULT OR AND LT GT LEQ GEQ EQ NOT NEQ
 
 %token TRY WITH RAISE E
-%token SETREF BANG
+%token REF SETREF BANG
 
 %start main
 
@@ -18,13 +18,15 @@
 %type <string list> list_of_idents
 
 %nonassoc ELSE
+%right REF
 %right SEMI
 %right IN
 %right ARROW
 %left PLUS MINUS OR
 %left MULT AND
+%right BANG
 
-%nonassoc NOT LET IF THEN DELIM FUN INT REF BANG SETREF
+%nonassoc NOT LET IF THEN DELIM FUN INT SETREF
 %nonassoc LPAREN RPAREN LT GT LEQ GEQ EQ NEQ IDENT
 %nonassoc BEGIN END
 
@@ -54,7 +56,9 @@ expr:
   | TRY expr WITH E IDENT ARROW expr { TryWith ($2, $5, $7) }
   | RAISE enclosed { Raise $2 }
 
-  | BANG expr { Call (Var "!", $2) }
+  | PRINT enclosed { Print $2 }
+
+  | REF expr { MakeRef ($2) }
   | expr SETREF expr   { BinaryOp (SetRef, $1, $3) }
 
   | NOT expr        { UnaryOp (Not, $2) }
@@ -80,5 +84,6 @@ enclosed:
   | BEGIN expr END { $2 }
   | LPAREN expr RPAREN { $2 }
   | INT   { Constant (Int $1) }
+  | BANG enclosed { Deref ($2) }
   | IDENT { Var $1 }
 

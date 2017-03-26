@@ -15,10 +15,12 @@ rule token = parse
   | "if" { IF }
   | "then" { THEN }
   | "else" { ELSE }
+  | "prInt" { PRINT }
   | "try" { TRY }
   | "with" { WITH }
   | "raise" { RAISE }
   | 'E' { E }
+  | "ref" { REF }
   | ":=" { SETREF }
   | "rec" { REC }
   | "not" { NOT }

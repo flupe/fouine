@@ -33,7 +33,12 @@ let eval e =
             | _ -> raise InterpretationError
           end
 
-        (* todo: handle refs *)
+        | Ref r, _ ->
+            if op = SetRef then begin
+              r := rc;
+              Unit
+            end
+            else raise InterpretationError
 
         | _ -> raise InterpretationError
       end
@@ -77,6 +82,27 @@ let eval e =
             let env' = Env.add id v env in
             step env' fn
 
+        | _ -> raise InterpretationError
+      end
+
+    | MakeRef e ->
+        let v = step env e in
+        Ref (ref v)
+
+    | Deref e -> begin
+        let v = step env e in
+        match v with
+        | Ref r -> !r
+        | _ -> raise InterpretationError
+      end
+
+    | Print e -> begin
+        let v = step env e in
+        match v with
+        | Int i ->
+            print_int i;
+            print_newline ();
+            v
         | _ -> raise InterpretationError
       end
 

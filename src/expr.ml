@@ -31,6 +31,7 @@ end)
 type constant
   = Int of int
   | Bool of bool
+  | Ref of constant ref
   | Closure of identifier * expr * constant Env.t
   | Unit
 
@@ -47,6 +48,9 @@ and expr
   | Raise of expr
   | TryWith of expr * identifier * expr
   | Fun of identifier * expr
+  | MakeRef of expr
+  | Deref of expr
+  | Print of expr
 
 
 let string_of_binary_op = function
@@ -82,6 +86,9 @@ and print_expr = function
       | Int i -> print_string @@ green @@ string_of_int i
       | Unit -> print_string @@ magenta "()"
       | Bool b -> print_string @@ yellow (if b then "true" else "false")
+      | Ref r ->
+          print_string @@ red "ref ";
+          escape (Constant !r);
       | Closure (id, fn, _) ->
           print_string @@ "(" ^ blue "closure " ^ id ^ " -> ";
           escape fn;
@@ -138,6 +145,18 @@ and print_expr = function
       print_string @@ blue "fun " ^ yellow id ^ " -> ";
       print_expr fn
 
+  | MakeRef e ->
+      print_string @@ red "ref ";
+      escape e
+
+  | Deref e ->
+      print_string @@ "!";
+      escape e
+
+  | Print e ->
+      print_string @@ blue "prInt ";
+      escape e
+
 let print e =
   print_expr e;
   print_endline ";;"
@@ -153,3 +172,6 @@ let print_constant = function
       print_endline @@ "- " ^ blue "fun" ^ " : " ^ yellow id ^ " -> expr"
 
   | Unit -> print_endline @@ "- " ^ magenta "unit" ^ " : ()"
+
+  | Ref r ->
+      print_endline @@ "- " ^ red "ref"
