@@ -6,7 +6,8 @@
 - exceptions are allowed.
 - the `prInt` command returns `unit` to stay consistent with OCaml.
 
-### parsing
+
+### parsing
 
 #### currently supported syntax
 - a delimiter `;;` is **required** at the end of a given input.
@@ -30,7 +31,7 @@
 - `prInt` command.
 - reference syntax: `ref 2`, `!x`, `x := 3`.
 - chained function calls, even with anonymous functions.
-- scopes, delimited by parens or `begin, `end`.
+- scopes delimited by parens or `begin`, `end`.
 
 #### todo
 - parse negative integers.
@@ -41,7 +42,7 @@
 ### interpretation
 
 #### implemented already
-- all the arithmetical and boolean operations.
+- all arithmetical and boolean operations.
 - control flow (`if`).
 - variable definition and fetching through environments.
 - closures and variable propagation.

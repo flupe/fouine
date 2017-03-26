@@ -1,4 +1,4 @@
-open Expr
+open Ast
 open Print
 
 let _ =
@@ -13,7 +13,7 @@ let _ =
   print prog;
   try
     Interpreter.eval prog
-    |> print_constant
+    |> Interpreter.print_result
   with Interpreter.InterpretationError ->
     print_endline "error while interpreting the program"
 
