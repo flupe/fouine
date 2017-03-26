@@ -1,15 +1,15 @@
-## parser & interpreter for the fouine programming language
+# parser & interpreter for the fouine programming language
 
-### notes
+## notes
 - basic atomic types: `int`, `bool`, `unit`, `'a ref`, `fun` are supported.
 - we can have references of any of the previous atomic types.
 - exceptions are allowed.
-- the `prInt` command returns `unit` to stay consistent with OCaml.
+- the `:=` operator returns `unit` to stay consistent with OCaml.
 
 
-### parsing
+## parsing
 
-#### currently supported syntax
+### currently supported syntax
 - a delimiter `;;` is **required** at the end of a given input.
 - positive integer constants.
 - boolean constants: `true` and `false`.
@@ -33,15 +33,15 @@
 - chained function calls, even with anonymous functions.
 - scopes delimited by parens or `begin`, `end`.
 
-#### todo
+### todo
 - parse negative integers.
 - follow the OCaml spec and allow for global `let` definitions in the outer scope.
 - better error handling when a syntax error occurs.
 
 
-### interpretation
+## interpretation
 
-#### implemented already
+### implemented already
 - all arithmetical and boolean operations.
 - control flow (`if`).
 - variable definition and fetching through environments.
@@ -50,6 +50,6 @@
 - full reference support.
 - valid print operation.
 
-#### todo
+### todo
 - implement exceptions (with continuation)
 - implement recursion (? how???)

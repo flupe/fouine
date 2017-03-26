@@ -47,6 +47,10 @@ expr:
       Let ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3, $7)
     }
 
+  | LET REC IDENT list_of_idents EQ expr IN expr {
+      LetRec ($3, List.fold_left (fun e x -> Fun (x, e)) $6 $4, $8)
+    }
+
   | FUN IDENT list_of_idents ARROW expr {
       Fun ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3)
     }

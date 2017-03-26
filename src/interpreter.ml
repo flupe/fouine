@@ -13,6 +13,7 @@ type constant
   | CBool of bool
   | CRef of constant ref
   | CClosure of Ast.identifier * Ast.t * constant Env.t
+  | CFix of Ast.identifier * Ast.t * constant Env.t
   | CUnit
 
 let rec equal_types a b =
@@ -20,6 +21,7 @@ let rec equal_types a b =
   | CInt _, CInt _
   | CBool _, CBool _
   | CClosure _, CClosure _
+  | CFix _, CFix _
   | CUnit, CUnit -> true
   | CRef ra, CRef rb ->
       equal_types !ra !rb
@@ -102,15 +104,21 @@ let eval e =
         let env' = Env.add id c env in
         step env' fn
 
+    | LetRec (id, e, fn) ->
+        let env' = Env.add id (CFix (id, e, env)) env in
+        step env' fn
+
     | Fun (id, e) -> CClosure (id, e, env)
 
     | Call (e, x) -> begin
         let fc = step env e in
         match fc with
-        | CClosure (id, fn, env) ->
+        | CClosure (id, fn, env')
+        | CFix (id, fn, env') ->
             let v = step env x in
-            let env' = Env.add id v env in
-            step env' fn
+            let env'' = Env.add id v env' in
+            step env'' fn
+
         | _ -> raise InterpretationError
       end
 
@@ -146,6 +154,7 @@ let rec get_type = function
   (* we enforce non-cyclic references so it can't loop forever *)
   | CRef r -> get_type !r ^ red " ref"
   | CClosure _ -> blue "fun"
+  | CFix _ -> blue "rec fun"
   | CUnit -> magenta "unit"
 
 let print_result e =
@@ -155,5 +164,6 @@ let print_result e =
   | CInt i -> print (string_of_int i)
   | CBool b -> print (if b then "true" else "false")
   | CRef r -> print "-"
-  | CClosure (id, _, _) -> print (yellow id ^ " -> ast")
+  | CClosure (id, _, _)
+  | CFix (id, _, _) -> print (yellow id ^ " -> ast")
   | CUnit -> print "()"
