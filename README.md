@@ -49,7 +49,7 @@
 - function calls, currying.
 - full reference support.
 - valid print operation.
+- recursion (but until continuation is implemented, it will often provoke stack overflow).
 
 ### todo
 - implement exceptions (with continuation)
-- implement recursion (? how???)

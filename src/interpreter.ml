@@ -13,7 +13,7 @@ type constant
   | CBool of bool
   | CRef of constant ref
   | CClosure of Ast.identifier * Ast.t * constant Env.t
-  | CFix of Ast.identifier * Ast.identifier * Ast.t * constant Env.t
+  | CRec of Ast.identifier * Ast.identifier * Ast.t * constant Env.t
   | CUnit
 
 let rec equal_types a b =
@@ -21,7 +21,7 @@ let rec equal_types a b =
   | CInt _, CInt _
   | CBool _, CBool _
   | CClosure _, CClosure _
-  | CFix _, CFix _
+  | CRec _, CRec _
   | CUnit, CUnit -> true
   | CRef ra, CRef rb ->
       equal_types !ra !rb
@@ -105,7 +105,7 @@ let eval e =
         step env' fn
 
     | LetRec (name, id, e, fn) ->
-        let env' = Env.add name (CFix (name, id, e, env)) env in
+        let env' = Env.add name (CRec (name, id, e, env)) env in
         step env' fn
 
     | Fun (id, e) -> CClosure (id, e, env)
@@ -118,7 +118,7 @@ let eval e =
             let env' =
               Env.add id v env'
             in step env' fn
-        | CFix (name, id, fn, env') ->
+        | CRec (name, id, fn, env') ->
             let v = step env x in
             let env' =
               env'
@@ -161,7 +161,7 @@ let rec get_type = function
   (* we enforce non-cyclic references so it can't loop forever *)
   | CRef r -> get_type !r ^ red " ref"
   | CClosure _ -> blue "fun"
-  | CFix _ -> blue "rec fun"
+  | CRec _ -> blue "rec fun"
   | CUnit -> magenta "unit"
 
 let print_result e =
@@ -172,5 +172,5 @@ let print_result e =
   | CBool b -> print (if b then "true" else "false")
   | CRef r -> print "-"
   | CClosure (id, _, _) -> print (yellow id ^ " -> ast")
-  | CFix (name, id, _, _) -> print (yellow name ^ " " ^ yellow id ^ " -> ast")
+  | CRec (name, id, _, _) -> print (yellow name ^ " " ^ yellow id ^ " -> ast")
   | CUnit -> print "()"
