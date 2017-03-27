@@ -30,7 +30,7 @@ type t
   | Var of identifier
   | IfThenElse of t * t * t
   | Let of identifier * t * t
-  | LetRec of identifier * t * t
+  | LetRec of identifier * identifier * t * t
   | Call of t * t
   | Raise of t
   | TryWith of t * identifier * t
@@ -68,43 +68,43 @@ let rec escape e =
 and print_ast = function
   | Int i -> print_string @@ green @@ string_of_int i
 
-  | Unit -> print_string @@ magenta "()"
+  | Unit -> print_string (magenta "()")
 
-  | Bool b -> print_string @@ yellow (if b then "true" else "false")
+  | Bool b -> print_string (yellow (if b then "true" else "false"))
 
   | Ref r ->
-      print_string @@ red "ref ";
+      print_string (red "ref ");
       escape r;
 
   | BinaryOp (op, l, r) ->
       escape l;
-      print_string @@ string_of_binary_op op;
+      print_string (string_of_binary_op op);
       escape r
 
   | UnaryOp (op, r) ->
-      print_string @@ string_of_unary_op op;
+      print_string (string_of_unary_op op);
       escape r
 
-  | Var id -> print_string @@ cyan id
+  | Var id -> print_string (cyan id)
 
   | IfThenElse (cond, l, r) ->
-      print_string @@ red "if ";
+      print_string (red "if ");
       escape cond;
-      print_string @@ red " then\n";
+      print_string (red " then\n");
       escape l;
-      print_string @@ red "\nelse\n";
+      print_string (red "\nelse\n");
       escape r
 
   | Let (id, v, e) ->
-      print_string @@ red "let " ^ yellow id ^ " = ";
+      print_string (red "let " ^ yellow id ^ " = ");
       print_ast v;
-      print_string @@ red " in\n";
+      print_string (red " in\n");
       print_ast e
 
-  | LetRec (id, v, e) ->
-      print_string @@ red "let rec " ^ yellow id ^ " = ";
+  | LetRec (name, id, v, e) ->
+      print_string (red "let rec " ^ yellow name ^ " " ^ yellow id ^ " = ");
       print_ast v;
-      print_string @@ red " in\n";
+      print_string (red " in\n");
       print_ast e
 
   | Call (fn, x) ->
@@ -113,25 +113,25 @@ and print_ast = function
       escape x
 
   | TryWith (fn, e, fail) ->
-      print_string @@ red "try\n";
+      print_string (red "try\n");
       escape fn;
-      print_string @@ red " with " ^ blue "E " ^ e ^ " ->\n";
+      print_string (red " with " ^ blue "E " ^ e ^ " ->\n");
       escape fail
 
   | Raise e ->
-      print_string @@ red "raise ";
+      print_string (red "raise ");
       escape e
 
   | Fun (id, fn) ->
-      print_string @@ blue "fun " ^ yellow id ^ " -> ";
+      print_string (blue "fun " ^ yellow id ^ " -> ");
       print_ast fn
 
   | Deref e ->
-      print_string @@ "!";
+      print_string ("!");
       escape e
 
   | Print e ->
-      print_string @@ blue "prInt ";
+      print_string (blue "prInt ");
       escape e
 
 let print e =

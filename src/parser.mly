@@ -48,7 +48,9 @@ expr:
     }
 
   | LET REC IDENT list_of_idents EQ expr IN expr {
-      LetRec ($3, List.fold_left (fun e x -> Fun (x, e)) $6 $4, $8)
+      match $4 with
+      | arg :: t -> LetRec($3, arg, List.fold_left (fun e x -> Fun (x, e)) $6 t, $8)
+      | _ -> Let ($3, $6, $8)
     }
 
   | FUN IDENT list_of_idents ARROW expr {

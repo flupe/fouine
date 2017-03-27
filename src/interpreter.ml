@@ -13,7 +13,7 @@ type constant
   | CBool of bool
   | CRef of constant ref
   | CClosure of Ast.identifier * Ast.t * constant Env.t
-  | CFix of Ast.identifier * Ast.t * constant Env.t
+  | CFix of Ast.identifier * Ast.identifier * Ast.t * constant Env.t
   | CUnit
 
 let rec equal_types a b =
@@ -104,8 +104,8 @@ let eval e =
         let env' = Env.add id c env in
         step env' fn
 
-    | LetRec (id, e, fn) ->
-        let env' = Env.add id (CFix (id, e, env)) env in
+    | LetRec (name, id, e, fn) ->
+        let env' = Env.add name (CFix (name, id, e, env)) env in
         step env' fn
 
     | Fun (id, e) -> CClosure (id, e, env)
@@ -113,11 +113,18 @@ let eval e =
     | Call (e, x) -> begin
         let fc = step env e in
         match fc with
-        | CClosure (id, fn, env')
-        | CFix (id, fn, env') ->
+        | CClosure (id, fn, env') ->
             let v = step env x in
-            let env'' = Env.add id v env' in
-            step env'' fn
+            let env' =
+              Env.add id v env'
+            in step env' fn
+        | CFix (name, id, fn, env') ->
+            let v = step env x in
+            let env' =
+              env'
+              |> Env.add name fc
+              |> Env.add id v
+            in step env' fn
 
         | _ -> raise InterpretationError
       end
@@ -164,6 +171,6 @@ let print_result e =
   | CInt i -> print (string_of_int i)
   | CBool b -> print (if b then "true" else "false")
   | CRef r -> print "-"
-  | CClosure (id, _, _)
-  | CFix (id, _, _) -> print (yellow id ^ " -> ast")
+  | CClosure (id, _, _) -> print (yellow id ^ " -> ast")
+  | CFix (name, id, _, _) -> print (yellow name ^ " " ^ yellow id ^ " -> ast")
   | CUnit -> print "()"
