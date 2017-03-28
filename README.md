@@ -34,6 +34,7 @@
 - scopes delimited by parens or `begin`, `end`.
 
 ### todo
+- improve recursive definitions.
 - parse negative integers.
 - follow the OCaml spec and allow for global `let` definitions in the outer scope.
 - better error handling when a syntax error occurs.
@@ -49,7 +50,8 @@
 - function calls, currying.
 - full reference support.
 - valid print operation.
-- recursion (but until continuation is implemented, it will often provoke stack overflow).
+- recursion.
+- exceptions handling (with continuation).
 
 ### todo
-- implement exceptions (with continuation)
+- global refactor

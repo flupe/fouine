@@ -158,6 +158,15 @@ let eval success error e =
           | _ -> raise InterpretationError
         in step env success' error e
 
+    | Raise e ->
+        step env error error e
+
+    | TryWith (l, id, r) ->
+        let error' x = 
+          let env' = Env.add id x env in
+          step env' success error r
+        in step env success error' l
+
     (* | Seq (l, r) ->
         let lc = step env l in
         if lc = CUnit then
