@@ -12,8 +12,9 @@ let _ =
   in
   print prog;
   try
-    Interpreter.eval prog
-    |> Interpreter.print_result
+    let error x = () in
+    let success x = () in
+    Interpreter.eval success error prog
   with Interpreter.InterpretationError ->
     print_endline "error while interpreting the program"
 

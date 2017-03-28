@@ -3,6 +3,8 @@ open Print
 
 exception InterpretationError
 
+let (<|) = (@@)
+
 module Env = Map.Make(struct
   type t = Ast.identifier
   let compare = Pervasives.compare
@@ -28,139 +30,145 @@ let rec equal_types a b =
   | _ -> false
 
 (* eval : expr -> constant *)
-let eval e =
+let eval success error e =
   let env = Env.empty in
 
-  let rec step env = function
-    | Int c -> CInt c
-    | Bool b -> CBool b
-    | Unit -> CUnit
+  let rec step env success error = function
+    | Int c -> success <| CInt c
+    | Bool b -> success <| CBool b
+    | Unit -> success <| CUnit
 
-    | BinaryOp (op, l, r) -> begin
-        let lc = step env l in
-        let rc = step env r in
+    | BinaryOp (op, l, r) ->
+        let success' lc = 
+          let success' rc =
+            success <|
+            match lc, rc with
+            | CInt lv, CInt rv -> begin
+                match op with
+                | Plus -> CInt (lv + rv)
+                | Minus -> CInt (lv - rv)
+                | Mult -> CInt (lv * rv)
+                | Lt -> CBool (lv < rv)
+                | Gt -> CBool (lv > rv)
+                | Leq -> CBool (lv <= rv)
+                | Geq -> CBool (lv >= rv)
+                | Eq -> CBool (lv = rv)
+                | Neq -> CBool (lv <> rv)
+                | _ -> raise InterpretationError
+              end
 
-        match lc, rc with
-        | CInt lv, CInt rv -> begin
-            match op with
-            | Plus -> CInt (lv + rv)
-            | Minus -> CInt (lv - rv)
-            | Mult -> CInt (lv * rv)
-            | Lt -> CBool (lv < rv)
-            | Gt -> CBool (lv > rv)
-            | Leq -> CBool (lv <= rv)
-            | Geq -> CBool (lv >= rv)
-            | Eq -> CBool (lv = rv)
-            | Neq -> CBool (lv <> rv)
+            | CBool lv, CBool rv -> begin
+                match op with
+                | Or -> CBool (lv || rv)
+                | And -> CBool (lv && rv)
+                | Eq -> CBool (lv = rv)
+                | Neq -> CBool (lv <> rv)
+                | _ -> raise InterpretationError
+              end
+
+            | CRef r, _ ->
+                if op = SetRef then
+                  (* references cannot change type *)
+                  if equal_types rc !r then begin
+                    r := rc;
+                    CUnit
+                  end else raise InterpretationError
+                else raise InterpretationError
+
             | _ -> raise InterpretationError
-          end
+          in step env success' error r
+        in step env success' error l
 
-        | CBool lv, CBool rv -> begin
-            match op with
-            | Or -> CBool (lv || rv)
-            | And -> CBool (lv && rv)
-            | Eq -> CBool (lv = rv)
-            | Neq -> CBool (lv <> rv)
-            | _ -> raise InterpretationError
-          end
-
-        | CRef r, _ ->
-            if op = SetRef then
-              (* references cannot change type *)
-              if equal_types rc !r then begin
-                r := rc;
-                CUnit
-              end else raise InterpretationError
-            else raise InterpretationError
-
-        | _ -> raise InterpretationError
-      end
-
-    | UnaryOp (op, e) -> begin
-        let c = step env e in
-        match c with
-        | CBool b ->
-            if op = Not then CBool (not b)
-            else raise InterpretationError
-        | _ -> raise InterpretationError
-      end
+    | UnaryOp (op, e) ->
+        let success' c =
+          success <|
+          match c with
+          | CBool b ->
+              if op = Not then CBool (not b)
+              else raise InterpretationError
+          | _ -> raise InterpretationError
+        in step env success' error e
 
     | Var id ->
+        success <|
         if Env.mem id env then
           Env.find id env
         else raise InterpretationError
 
-    | IfThenElse (cond, truthy, falsy) -> begin
-        let c = step env cond in
-        match c with
-        | CBool b ->
-            if b then step env truthy
-            else step env falsy
-        | _ -> raise InterpretationError
-      end
+    | IfThenElse (cond, truthy, falsy) ->
+        let success' c = 
+          match c with
+          | CBool b ->
+              if b then step env success error truthy
+              else step env success error falsy
+          | _ -> raise InterpretationError
+        in step env success' error cond
 
     | Let (id, e, fn) ->
-        let c = step env e in
-        let env' = Env.add id c env in
-        step env' fn
+        let success' c =
+          let env' = Env.add id c env in
+          step env' success error fn
+        in step env success' error e
 
     | LetRec (name, id, e, fn) ->
         let env' = Env.add name (CRec (name, id, e, env)) env in
-        step env' fn
+        step env' success error fn
 
-    | Fun (id, e) -> CClosure (id, e, env)
+    | Fun (id, e) ->
+        success <| CClosure (id, e, env)
 
-    | Call (e, x) -> begin
-        let fc = step env e in
-        match fc with
-        | CClosure (id, fn, env') ->
-            let v = step env x in
-            let env' =
-              Env.add id v env'
-            in step env' fn
-        | CRec (name, id, fn, env') ->
-            let v = step env x in
-            let env' =
-              env'
-              |> Env.add name fc
-              |> Env.add id v
-            in step env' fn
-
-        | _ -> raise InterpretationError
-      end
+    | Call (e, x) ->
+        let success' fc =
+          (* todo: refactor to compute x only if we do have a function *)
+          let success' v = 
+            match fc with
+            | CClosure (id, fn, env') ->
+                let env' =
+                  Env.add id v env'
+                in step env' success error fn
+            | CRec (name, id, fn, env') ->
+                let env' =
+                  env'
+                  |> Env.add name fc
+                  |> Env.add id v
+                in step env' success error fn
+            | _ -> raise InterpretationError
+          in step env success' error x
+        in step env success' error e
 
     | Ref e ->
-        let v = step env e in
-        CRef (ref v)
+        let success' v =
+          success <| CRef (ref v)
+        in step env success' error e
 
-    | Deref e -> begin
-        let v = step env e in
-        match v with
-        | CRef r -> !r
-        | _ -> raise InterpretationError
-      end
+    | Deref e ->
+        let success' v =
+          match v with
+          | CRef r -> success !r
+          | _ -> raise InterpretationError
+        in step env success' error e
 
-    | Print e -> begin
-        let v = step env e in
-        match v with
-        | CInt i ->
-            print_int i;
-            print_newline ();
-            v
-        | _ -> raise InterpretationError
-      end
+    | Print e ->
+        let success' v = 
+          match v with
+          | CInt i ->
+              print_int i;
+              print_newline ();
+              success v
+          | _ -> raise InterpretationError
+        in step env success' error e
 
-    | Seq (l, r) ->
+    (* | Seq (l, r) ->
         let lc = step env l in
         if lc = CUnit then
           step env r
         else
-          raise InterpretationError
+          raise InterpretationError *)
 
-    | _ -> CUnit
+    | _ -> success CUnit
   in
 
-  step env e
+  step env success error e
 
 let rec get_type = function
   | CInt _ -> green "int"
@@ -172,8 +180,7 @@ let rec get_type = function
   | CUnit -> magenta "unit"
 
 let print_result e =
-  let typ = get_type e in
-  let print txt = print_endline @@ "- " ^ typ ^ " : " ^ txt in
+  let print txt = print_endline @@ "- : " ^ get_type e ^ " = " ^ txt in
   match e with
   | CInt i -> print (string_of_int i)
   | CBool b -> print (if b then "true" else "false")
