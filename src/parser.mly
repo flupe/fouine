@@ -25,6 +25,7 @@
 %right ARROW
 %left PLUS MINUS OR
 %left MULT AND
+%right SEMI
 %right BANG
 
 %nonassoc NOT LET IF THEN DELIM FUN INT SETREF
@@ -80,6 +81,8 @@ expr:
   | expr GEQ expr   { BinaryOp (Geq, $1, $3) }
   | expr EQ expr    { BinaryOp (Eq, $1, $3) }
   | expr NEQ expr   { BinaryOp (Neq, $1, $3) }
+
+  | expr SEMI expr  { Seq ($1, $3) }
 
   | func { $1 }
 

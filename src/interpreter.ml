@@ -150,6 +150,13 @@ let eval e =
         | _ -> raise InterpretationError
       end
 
+    | Seq (l, r) ->
+        let lc = step env l in
+        if lc = CUnit then
+          step env r
+        else
+          raise InterpretationError
+
     | _ -> CUnit
   in
 

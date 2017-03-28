@@ -37,6 +37,7 @@ type t
   | Fun of identifier * t
   | Deref of t
   | Print of t
+  | Seq of t * t
 
 let string_of_binary_op = function
   | Plus -> " + "
@@ -133,6 +134,11 @@ and print_ast = function
   | Print e ->
       print_string (blue "prInt ");
       escape e
+
+  | Seq (l, r) ->
+      escape l;
+      print_string ";\n";
+      escape r
 
 let print e =
   print_ast e;
