@@ -21,12 +21,11 @@
 
 %nonassoc ELSE
 %right REF
-%right SEMI
 %right IN
 %right RARROW
 %left PLUS MINUS OR
-%left MULT AND
 %right SEMI
+%left MULT AND
 %nonassoc LARROW
 %right BANG
 

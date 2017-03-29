@@ -259,8 +259,8 @@ let print_result e =
   | CRec (name, id, _, _) -> print (yellow name ^ yellow id ^ " -> ast")
   | CArray a ->
       let rec aux acc = function
-        | [x] -> acc ^ string_of_int x
-        | x :: t -> aux (acc ^ string_of_int x ^ "; ") t
+        | [x] -> acc ^ (green <| string_of_int x)
+        | x :: t -> aux (acc ^ green (string_of_int x) ^ "; ") t
         | _ -> acc
       in let values = aux "" (Array.to_list a)
       in print <| "[| " ^ values ^ " |]"

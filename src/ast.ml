@@ -59,105 +59,116 @@ let string_of_binary_op = function
 let string_of_unary_op = function
   | Not -> "not "
 
-let rec escape e =
+let indent = "  "
+
+let print inline offset txt =
+  if not inline then
+    print_string offset;
+  print_string txt
+
+let rec escape inline offset e =
   match e with
   | Int _ | Bool _ | Unit
   | Var _ ->
-      print_ast e
+      print_ast inline offset e
   | _ ->
-      print_string "(";
-      print_ast e;
+      print inline offset "(";
+      print_ast true (offset ^ indent) e;
       print_string ")"
 
-and print_ast = function
-  | Int i -> print_string @@ green @@ string_of_int i
-
-  | Unit -> print_string (magenta "()")
-
-  | Bool b -> print_string (yellow (if b then "true" else "false"))
+and print_ast inline offset = function
+  | Int i -> print inline offset (green @@ string_of_int i)
+  | Unit -> print inline offset (magenta "()")
+  | Bool b -> print inline offset (yellow (if b then "true" else "false"))
 
   | Ref r ->
-      print_string (red "ref ");
-      escape r;
+      print inline offset (red "ref ");
+      escape true offset r
 
   | BinaryOp (op, l, r) ->
-      escape l;
+      escape inline offset l;
       print_string (string_of_binary_op op);
-      escape r
+      escape true offset r
 
   | UnaryOp (op, r) ->
-      print_string (string_of_unary_op op);
-      escape r
+      print inline offset (string_of_unary_op op);
+      escape true offset r
 
-  | Var id -> print_string (cyan id)
+  | Var id -> print inline offset (cyan id)
 
   | IfThenElse (cond, l, r) ->
-      print_string (red "if ");
-      escape cond;
-      print_string (red " then\n");
-      escape l;
-      print_string (red "\nelse\n");
-      escape r
+      print inline offset (red "if ");
+      escape true (offset ^ indent) cond;
+      print true offset (red " then\n");
+      escape false (offset ^ indent) l;
+      print_newline ();
+      print false offset (red "else\n");
+      escape false (offset ^ indent) r;
 
   | Let (id, v, e) ->
-      print_string (red "let " ^ yellow id ^ " = ");
-      print_ast v;
-      print_string (red " in\n");
-      print_ast e
+      print inline offset (red "let " ^ yellow id ^ " =\n");
+      print_ast false (offset ^ indent) v;
+      print_newline ();
+      print false offset (red "in\n");
+      print_ast false offset e
 
   | LetRec (id, v, e) ->
-      print_string (red "let rec " ^ yellow id ^ " = ");
-      print_ast v;
-      print_string (red " in\n");
-      print_ast e
+      print inline offset (red "let rec " ^ yellow id ^ " =\n");
+      print_ast false (offset ^ indent) v;
+      print_newline ();
+      print false offset (red "in\n");
+      print_ast false offset e
 
   | Call (fn, x) ->
-      escape fn;
+      escape inline offset fn;
       print_string " ";
-      escape x
+      escape true offset x
 
   | TryWith (fn, e, fail) ->
-      print_string (red "try\n");
-      escape fn;
-      print_string (red " with " ^ blue "E " ^ e ^ " ->\n");
-      escape fail
+      print inline offset (red "try\n");
+      escape false (offset ^ indent) fn;
+      print_newline ();
+      print false offset (red "with " ^ blue "E " ^ e ^ " ->\n");
+      escape false (offset ^ indent) fail
 
   | Raise e ->
-      print_string (red "raise ");
-      escape e
+      print inline offset (red "raise ");
+      escape true offset e
 
   | Fun (id, fn) ->
-      print_string (blue "fun " ^ yellow id ^ " -> ");
-      print_ast fn
+      print inline offset (blue "fun " ^ yellow id ^ " ->\n");
+      print_ast false (offset ^ indent) fn
 
   | Deref e ->
-      print_string ("!");
-      escape e
+      print inline offset ("!");
+      escape true (offset ^ indent) e
 
   | Print e ->
-      print_string (blue "prInt ");
-      escape e
+      print inline offset (blue "prInt ");
+      escape true (offset ^ indent) e
 
   | AMake e ->
-      print_string (blue "aMake ");
-      escape e
+      print inline offset (blue "aMake ");
+      escape true (offset ^ indent) e
 
   | ArraySet (id, key, v) ->
-      print_string (id ^ ".(");
-      escape key;
+      print inline offset (id ^ ".(");
+      escape true (offset ^ indent) key;
       print_string ") <- ";
-      escape v;
+      escape true (offset ^ indent) v
 
   | ArrayRead (id, key) ->
-      print_string (id ^ ".(");
-      escape key;
-      print_string ")";
+      print inline offset (id ^ ".(");
+      escape true (offset ^ indent) key;
+      print_string ")"
 
   | Seq (l, r) ->
-      escape l;
+      escape inline offset l;
       print_endline ";";
-      escape r
+      escape false offset r
+
+  | _ -> ()
 
 let print e =
-  print_ast e;
+  print_ast true "" e;
   print_endline ";;"
