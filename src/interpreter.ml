@@ -25,11 +25,10 @@ let rec equal_types a b =
   | CClosure _, CClosure _
   | CRec _, CRec _
   | CUnit, CUnit -> true
-  | CRef ra, CRef rb ->
-      equal_types !ra !rb
+  | CRef ra, CRef rb -> equal_types !ra !rb
   | _ -> false
 
-(* eval : expr -> constant *)
+(* eval : (constant -> 'a) -> (constant -> 'b) -> Ast.t -> unit *)
 let eval success error e =
   let env = Env.empty in
 
@@ -40,43 +39,43 @@ let eval success error e =
 
     | BinaryOp (op, l, r) ->
         let success' lc = 
-          let success' rc =
-            success <|
-            match lc, rc with
-            | CInt lv, CInt rv -> begin
-                match op with
-                | Plus -> CInt (lv + rv)
-                | Minus -> CInt (lv - rv)
-                | Mult -> CInt (lv * rv)
-                | Lt -> CBool (lv < rv)
-                | Gt -> CBool (lv > rv)
-                | Leq -> CBool (lv <= rv)
-                | Geq -> CBool (lv >= rv)
-                | Eq -> CBool (lv = rv)
-                | Neq -> CBool (lv <> rv)
-                | _ -> raise InterpretationError
-              end
+        let success' rc =
+          success <|
+          match lc, rc with
+          | CInt lv, CInt rv -> begin
+              match op with
+              | Plus -> CInt (lv + rv)
+              | Minus -> CInt (lv - rv)
+              | Mult -> CInt (lv * rv)
+              | Lt -> CBool (lv < rv)
+              | Gt -> CBool (lv > rv)
+              | Leq -> CBool (lv <= rv)
+              | Geq -> CBool (lv >= rv)
+              | Eq -> CBool (lv = rv)
+              | Neq -> CBool (lv <> rv)
+              | _ -> raise InterpretationError
+            end
 
-            | CBool lv, CBool rv -> begin
-                match op with
-                | Or -> CBool (lv || rv)
-                | And -> CBool (lv && rv)
-                | Eq -> CBool (lv = rv)
-                | Neq -> CBool (lv <> rv)
-                | _ -> raise InterpretationError
-              end
+          | CBool lv, CBool rv -> begin
+              match op with
+              | Or -> CBool (lv || rv)
+              | And -> CBool (lv && rv)
+              | Eq -> CBool (lv = rv)
+              | Neq -> CBool (lv <> rv)
+              | _ -> raise InterpretationError
+            end
 
-            | CRef r, _ ->
-                if op = SetRef then
-                  (* references cannot change type *)
-                  if equal_types rc !r then begin
-                    r := rc;
-                    CUnit
-                  end else raise InterpretationError
-                else raise InterpretationError
+          | CRef r, _ ->
+              if op = SetRef then
+                (* references cannot change type *)
+                if equal_types rc !r then begin
+                  r := rc;
+                  CUnit
+                end else raise InterpretationError
+              else raise InterpretationError
 
-            | _ -> raise InterpretationError
-          in step env success' error r
+          | _ -> raise InterpretationError
+        in step env success' error r
         in step env success' error l
 
     | UnaryOp (op, e) ->
@@ -106,34 +105,48 @@ let eval success error e =
 
     | Let (id, e, fn) ->
         let success' c =
-          let env' = Env.add id c env in
-          step env' success error fn
+          let env' = Env.add id c env
+          in step env' success error fn
         in step env success' error e
 
-    | LetRec (name, id, e, fn) ->
-        let env' = Env.add name (CRec (name, id, e, env)) env in
-        step env' success error fn
+    | LetRec (id, e, fn) -> begin
+        match e with
+        | Fun (id', e') ->
+            let f = CRec(id, id', e', env) in
+            let env' = Env.add id f env in
+            step env' success error fn
+
+        (* ain't recursive, or at least not in the way we allow *)
+        | _ ->
+            let success' c =
+              let env' = Env.add id c env
+              in step env' success error fn
+            in step env success' error e
+      end
 
     | Fun (id, e) ->
         success <| CClosure (id, e, env)
 
     | Call (e, x) ->
         let success' fc =
-          (* todo: refactor to compute x only if we do have a function *)
-          let success' v = 
-            match fc with
-            | CClosure (id, fn, env') ->
+          match fc with
+          | CClosure (id, fn, env') ->
+              let success' v = 
                 let env' =
                   Env.add id v env'
                 in step env' success error fn
-            | CRec (name, id, fn, env') ->
+              in step env success' error x
+
+          | CRec (name, id, e, env') ->
+              let success' v = 
                 let env' =
                   env'
                   |> Env.add name fc
                   |> Env.add id v
-                in step env' success error fn
-            | _ -> raise InterpretationError
-          in step env success' error x
+                in step env' success error e
+              in step env success' error x
+
+          | _ -> raise InterpretationError
         in step env success' error e
 
     | Ref e ->
@@ -167,17 +180,15 @@ let eval success error e =
           step env' success error r
         in step env success error' l
 
-    (* | Seq (l, r) ->
-        let lc = step env l in
-        if lc = CUnit then
-          step env r
-        else
-          raise InterpretationError *)
+    | Seq (l, r) ->
+        let success' lc =
+          if lc = CUnit then
+            step env success error r
+          else raise InterpretationError
+        in step env success' error l
 
-    | _ -> success CUnit
-  in
-
-  step env success error e
+  in let _ = step env success error e 
+  in ()
 
 let rec get_type = function
   | CInt _ -> green "int"
@@ -195,5 +206,5 @@ let print_result e =
   | CBool b -> print (if b then "true" else "false")
   | CRef r -> print "-"
   | CClosure (id, _, _) -> print (yellow id ^ " -> ast")
-  | CRec (name, id, _, _) -> print (yellow name ^ " " ^ yellow id ^ " -> ast")
+  | CRec (name, id, _, _) -> print (yellow name ^ yellow id ^ " -> ast")
   | CUnit -> print "()"

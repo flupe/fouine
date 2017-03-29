@@ -8,7 +8,7 @@
 %token LET IN IF THEN ELSE DELIM FUN ARROW PRINT REC
 %token PLUS MINUS MULT OR AND LT GT LEQ GEQ EQ NOT NEQ
 
-%token TRUE FALSE
+%token TRUE FALSE UNIT
 %token TRY WITH RAISE E
 %token REF SETREF BANG
 
@@ -49,9 +49,7 @@ expr:
     }
 
   | LET REC IDENT list_of_idents EQ expr IN expr {
-      match $4 with
-      | arg :: t -> LetRec($3, arg, List.fold_left (fun e x -> Fun (x, e)) $6 t, $8)
-      | _ -> Let ($3, $6, $8)
+      LetRec($3, List.fold_left (fun e x -> Fun (x, e)) $6 $4, $8)
     }
 
   | FUN IDENT list_of_idents ARROW expr {

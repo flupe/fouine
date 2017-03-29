@@ -30,7 +30,7 @@ type t
   | Var of identifier
   | IfThenElse of t * t * t
   | Let of identifier * t * t
-  | LetRec of identifier * identifier * t * t
+  | LetRec of identifier * t * t
   | Call of t * t
   | Raise of t
   | TryWith of t * identifier * t
@@ -102,8 +102,8 @@ and print_ast = function
       print_string (red " in\n");
       print_ast e
 
-  | LetRec (name, id, v, e) ->
-      print_string (red "let rec " ^ yellow name ^ " " ^ yellow id ^ " = ");
+  | LetRec (id, v, e) ->
+      print_string (red "let rec " ^ yellow id ^ " = ");
       print_ast v;
       print_string (red " in\n");
       print_ast e
@@ -137,7 +137,7 @@ and print_ast = function
 
   | Seq (l, r) ->
       escape l;
-      print_string ";\n";
+      print_endline ";";
       escape r
 
 let print e =

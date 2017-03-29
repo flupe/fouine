@@ -33,6 +33,7 @@ rule token = parse
   | "<>" { NEQ }
   | "<=" { LEQ }
   | ">=" { GEQ }
+  | "()" { UNIT }
 
   | '(' { LPAREN }
   | ')' { RPAREN }
