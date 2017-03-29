@@ -37,6 +37,9 @@ type t
   | Fun of identifier * t
   | Deref of t
   | Print of t
+  | AMake of t
+  | ArraySet of identifier * t * t
+  | ArrayRead of identifier * t
   | Seq of t * t
 
 let string_of_binary_op = function
@@ -134,6 +137,21 @@ and print_ast = function
   | Print e ->
       print_string (blue "prInt ");
       escape e
+
+  | AMake e ->
+      print_string (blue "aMake ");
+      escape e
+
+  | ArraySet (id, key, v) ->
+      print_string (id ^ ".(");
+      escape key;
+      print_string ") <- ";
+      escape v;
+
+  | ArrayRead (id, key) ->
+      print_string (id ^ ".(");
+      escape key;
+      print_string ")";
 
   | Seq (l, r) ->
       escape l;

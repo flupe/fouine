@@ -16,6 +16,7 @@ type constant
   | CRef of constant ref
   | CClosure of Ast.identifier * Ast.t * constant Env.t
   | CRec of Ast.identifier * Ast.identifier * Ast.t * constant Env.t
+  | CArray of int array
   | CUnit
 
 let rec equal_types a b =
@@ -24,6 +25,7 @@ let rec equal_types a b =
   | CBool _, CBool _
   | CClosure _, CClosure _
   | CRec _, CRec _
+  | CArray _, CArray _
   | CUnit, CUnit -> true
   | CRef ra, CRef rb -> equal_types !ra !rb
   | _ -> false
@@ -171,6 +173,53 @@ let eval success error e =
           | _ -> raise InterpretationError
         in step env success' error e
 
+    | AMake e ->
+        let success' v = 
+          match v with
+          | CInt i when i >= 0 ->
+              CArray (Array.make i 0)
+              |> success
+          | _ -> raise InterpretationError
+        in step env success' error e
+
+    | ArraySet (id, key, v) ->
+        if Env.mem id env then
+          match (Env.find id env) with
+          | CArray a ->
+              let success' k =
+                match k with
+                | CInt k when k >= 0 ->
+                  if k >= Array.length a then
+                    raise InterpretationError
+                  else
+                  let success' v =
+                    match v with
+                    | CInt v ->
+                        a.(k) <- v;
+                        success CUnit
+                    | _ -> raise InterpretationError
+                  in step env success' error v
+                | _ -> raise InterpretationError
+              in step env success' error key
+          | _ -> raise InterpretationError
+        else raise InterpretationError
+
+    | ArrayRead (id, key) ->
+        if Env.mem id env then
+          match (Env.find id env) with
+          | CArray a ->
+              let success' k =
+                match k with
+                | CInt k when k >= 0 ->
+                  if k >= Array.length a then
+                    raise InterpretationError
+                  else
+                    success <| CInt a.(k)
+                | _ -> raise InterpretationError
+              in step env success' error key
+          | _ -> raise InterpretationError
+        else raise InterpretationError
+
     | Raise e ->
         step env error error e
 
@@ -197,6 +246,7 @@ let rec get_type = function
   | CRef r -> get_type !r ^ red " ref"
   | CClosure _ -> blue "fun"
   | CRec _ -> blue "rec fun"
+  | CArray _ -> cyan "int array"
   | CUnit -> magenta "unit"
 
 let print_result e =
@@ -207,4 +257,12 @@ let print_result e =
   | CRef r -> print "-"
   | CClosure (id, _, _) -> print (yellow id ^ " -> ast")
   | CRec (name, id, _, _) -> print (yellow name ^ yellow id ^ " -> ast")
+  | CArray a ->
+      let rec aux acc = function
+        | [x] -> acc ^ string_of_int x
+        | x :: t -> aux (acc ^ string_of_int x ^ "; ") t
+        | _ -> acc
+      in let values = aux "" (Array.to_list a)
+      in print <| "[| " ^ values ^ " |]"
+
   | CUnit -> print "()"

@@ -18,6 +18,7 @@ rule token = parse
   | "then" { THEN }
   | "else" { ELSE }
   | "prInt" { PRINT }
+  | "aMake" { AMAKE }
   | "try" { TRY }
   | "with" { WITH }
   | "raise" { RAISE }
@@ -26,7 +27,8 @@ rule token = parse
   | ":=" { SETREF }
   | "rec" { REC }
   | "not" { NOT }
-  | "->" { ARROW }
+  | "->" { RARROW }
+  | "<-" { LARROW }
   | "&&" { AND }
   | "||" { OR }
 
@@ -47,6 +49,7 @@ rule token = parse
   | '>' { GT }
 
   | ';' { SEMI }
+  | '.' { DOT }
   | ";;" { DELIM }
 
   | digit+ as s { INT(int_of_string s) }
