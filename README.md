@@ -5,6 +5,7 @@
 - we can have references of any of the previous atomic types.
 - exceptions are allowed.
 - the `:=` operator returns `unit` to stay consistent with OCaml.
+- **dependency**: for now, to replicate a REPL-like feel, we use `rlwrap`.
 
 
 ## parsing
@@ -55,4 +56,6 @@
 - exceptions handling (with continuation).
 
 ### todo
-- global refactor
+- global refactor (maybe not).
+- add several let without `in` keyword.
+- maybe add constant for `val x : expr`.

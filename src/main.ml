@@ -4,6 +4,9 @@ open Print
 let _ =
   let env = ref Interpreter.Env.empty in
   while true do
+    print_string ">>> ";
+    flush stdout;
+
     let prog =
       try
         Lexing.from_channel stdin
@@ -13,6 +16,7 @@ let _ =
         exit 1;
     in
     print prog;
+
     try
       let error _ x =
         print_endline (red "Uncaught exception E :");
