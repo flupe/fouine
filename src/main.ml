@@ -1,5 +1,6 @@
 open Ast
 open Print
+open Compiler
 
 let _ =
   let prog =
@@ -11,6 +12,7 @@ let _ =
       exit 1;
   in
   print prog;
+  print_endline @@ Secd.string_of_bytecode (compile prog);
   try
     let error x =
       print_endline (red "Uncaught exception E :");
