@@ -36,7 +36,7 @@
 %%
 
 main:
-  | expr DELIM { $1 }
+  | global DELIM { $1 }
 
 list_of_idents:
   | { [] }
@@ -45,15 +45,26 @@ list_of_idents:
 array_access:
   | IDENT DOT LPAREN expr RPAREN { $1, $4 }
 
+global:
+  | LET IDENT list_of_idents EQ expr {
+      Let ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3)
+    }
+
+  | LET REC IDENT list_of_idents EQ expr {
+      LetRec ($3, List.fold_left (fun e x -> Fun (x, e)) $6 $4)
+    }
+
+  | expr { $1 }
+
 expr:
   | { Unit }
 
   | LET IDENT list_of_idents EQ expr IN expr {
-      Let ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3, $7)
+      LetIn ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3, $7)
     }
 
   | LET REC IDENT list_of_idents EQ expr IN expr {
-      LetRec($3, List.fold_left (fun e x -> Fun (x, e)) $6 $4, $8)
+      LetRecIn ($3, List.fold_left (fun e x -> Fun (x, e)) $6 $4, $8)
     }
 
   | FUN IDENT list_of_idents RARROW expr {

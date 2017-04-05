@@ -33,9 +33,7 @@ let rec equal_types a b =
 type 'a callback =
   constant Env.t -> constant -> unit
 
-let eval (k : 'a callback) (kE : 'a callback) e : unit =
-  let env = Env.empty in
-
+let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
   let rec step env k kE = function
     | Int c -> k env <| CInt c
     | Bool b -> k env <| CBool b
@@ -107,13 +105,13 @@ let eval (k : 'a callback) (kE : 'a callback) e : unit =
           | _ -> raise InterpretationError
         in step env k' kE cond
 
-    | Let (id, e, fn) ->
+    | LetIn (id, e, fn) ->
         let k' _ c =
           let env' = Env.add id c env
           in step env' k kE fn
         in step env k' kE e
 
-    | LetRec (id, e, fn) -> begin
+    | LetRecIn (id, e, fn) -> begin
         match e with
         | Fun (id', e') ->
             let f = CRec(id, id', e', env) in
@@ -125,6 +123,27 @@ let eval (k : 'a callback) (kE : 'a callback) e : unit =
             let k' _ c =
               let env' = Env.add id c env
               in step env' k kE fn
+            in step env k' kE e
+      end
+
+    | Let (id, e) ->
+        let k' _ c =
+          let env' = Env.add id c env
+          in k env' CUnit
+        in step env k' kE e
+
+    | LetRec (id, e) -> begin
+        match e with
+        | Fun (id', e') ->
+            let f = CRec(id, id', e', env) in
+            let env' = Env.add id f env in
+            k env' CUnit
+
+        (* ain't recursive, or at least not in the way we allow *)
+        | _ ->
+            let k' _ c =
+              let env' = Env.add id c env
+              in k env' CUnit
             in step env k' kE e
       end
 

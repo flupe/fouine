@@ -29,8 +29,10 @@ type t
   | UnaryOp of unary_op * t
   | Var of identifier
   | IfThenElse of t * t * t
-  | Let of identifier * t * t
-  | LetRec of identifier * t * t
+  | Let of identifier * t
+  | LetRec of identifier * t
+  | LetIn of identifier * t * t
+  | LetRecIn of identifier * t * t
   | Call of t * t
   | Raise of t
   | TryWith of t * identifier * t
@@ -105,19 +107,27 @@ and print_ast inline offset = function
       print false offset (red "else\n");
       escape false (offset ^ indent) r;
 
-  | Let (id, v, e) ->
+  | LetIn (id, v, e) ->
       print inline offset (red "let " ^ yellow id ^ " =\n");
       print_ast false (offset ^ indent) v;
       print_newline ();
       print false offset (red "in\n");
       print_ast false offset e
 
-  | LetRec (id, v, e) ->
+  | LetRecIn (id, v, e) ->
       print inline offset (red "let rec " ^ yellow id ^ " =\n");
       print_ast false (offset ^ indent) v;
       print_newline ();
       print false offset (red "in\n");
       print_ast false offset e
+
+  | Let (id, v) ->
+      print inline offset (red "let " ^ yellow id ^ " =\n");
+      print_ast false (offset ^ indent) v;
+
+  | LetRec (id, v) ->
+      print inline offset (red "let rec " ^ yellow id ^ " =\n");
+      print_ast false (offset ^ indent) v;
 
   | Call (fn, x) ->
       escape inline offset fn;
@@ -166,8 +176,6 @@ and print_ast inline offset = function
       escape inline offset l;
       print_endline ";";
       escape false offset r
-
-  | _ -> ()
 
 let print e =
   print_ast true "" e;
