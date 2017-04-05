@@ -12,11 +12,11 @@ let _ =
   in
   print prog;
   try
-    let error x =
+    let error _ x =
       print_endline (red "Uncaught exception E :");
       Interpreter.print_result x
     in
-    let success = Interpreter.print_result in
+    let success _ = Interpreter.print_result in
     Interpreter.eval success error prog
   with Interpreter.InterpretationError ->
     print_endline "error while interpreting the program"

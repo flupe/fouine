@@ -30,19 +30,21 @@ let rec equal_types a b =
   | CRef ra, CRef rb -> equal_types !ra !rb
   | _ -> false
 
-(* eval : (constant -> 'a) -> (constant -> 'b) -> Ast.t -> unit *)
-let eval success error e =
+type 'a callback =
+  constant Env.t -> constant -> unit
+
+let eval (k : 'a callback) (kE : 'a callback) e : unit =
   let env = Env.empty in
 
-  let rec step env success error = function
-    | Int c -> success <| CInt c
-    | Bool b -> success <| CBool b
-    | Unit -> success <| CUnit
+  let rec step env k kE = function
+    | Int c -> k env <| CInt c
+    | Bool b -> k env <| CBool b
+    | Unit -> k env <| CUnit
 
     | BinaryOp (op, l, r) ->
-        let success' lc = 
-        let success' rc =
-          success <|
+        let k' _ lc = 
+        let k' _ rc =
+          k env <|
           match lc, rc with
           | CInt lv, CInt rv -> begin
               match op with
@@ -77,130 +79,129 @@ let eval success error e =
               else raise InterpretationError
 
           | _ -> raise InterpretationError
-        in step env success' error r
-        in step env success' error l
+        in step env k' kE r
+        in step env k' kE l
 
     | UnaryOp (op, e) ->
-        let success' c =
-          success <|
+        let k' _ c =
+          k env <|
           match c with
           | CBool b ->
               if op = Not then CBool (not b)
               else raise InterpretationError
           | _ -> raise InterpretationError
-        in step env success' error e
+        in step env k' kE e
 
     | Var id ->
-        success <|
+        k env <|
         if Env.mem id env then
           Env.find id env
         else raise InterpretationError
 
     | IfThenElse (cond, truthy, falsy) ->
-        let success' c = 
+        let k' _ c = 
           match c with
           | CBool b ->
-              if b then step env success error truthy
-              else step env success error falsy
+              if b then step env k kE truthy
+              else step env k kE falsy
           | _ -> raise InterpretationError
-        in step env success' error cond
+        in step env k' kE cond
 
     | Let (id, e, fn) ->
-        let success' c =
+        let k' _ c =
           let env' = Env.add id c env
-          in step env' success error fn
-        in step env success' error e
+          in step env' k kE fn
+        in step env k' kE e
 
     | LetRec (id, e, fn) -> begin
         match e with
         | Fun (id', e') ->
             let f = CRec(id, id', e', env) in
             let env' = Env.add id f env in
-            step env' success error fn
+            step env' k kE fn
 
         (* ain't recursive, or at least not in the way we allow *)
         | _ ->
-            let success' c =
+            let k' _ c =
               let env' = Env.add id c env
-              in step env' success error fn
-            in step env success' error e
+              in step env' k kE fn
+            in step env k' kE e
       end
 
     | Fun (id, e) ->
-        success <| CClosure (id, e, env)
+        k env <| CClosure (id, e, env)
 
     | Call (e, x) ->
-        let success' fc =
+        let k' _ fc =
           match fc with
           | CClosure (id, fn, env') ->
-              let success' v = 
+              let k' _ v = 
                 let env' =
                   Env.add id v env'
-                in step env' success error fn
-              in step env success' error x
+                in step env' k kE fn
+              in step env k' kE x
 
           | CRec (name, id, e, env') ->
-              let success' v = 
+              let k' _ v = 
                 let env' =
                   env'
                   |> Env.add name fc
                   |> Env.add id v
-                in step env' success error e
-              in step env success' error x
+                in step env' k kE e
+              in step env k' kE x
 
           | _ -> raise InterpretationError
-        in step env success' error e
+        in step env k' kE e
 
     | Ref e ->
-        let success' v =
-          success <| CRef (ref v)
-        in step env success' error e
+        let k' _ v =
+          k env <| CRef (ref v)
+        in step env k' kE e
 
     | Deref e ->
-        let success' v =
+        let k' _ v =
           match v with
-          | CRef r -> success !r
+          | CRef r -> k env !r
           | _ -> raise InterpretationError
-        in step env success' error e
+        in step env k' kE e
 
     | Print e ->
-        let success' v = 
+        let k' _ v = 
           match v with
           | CInt i ->
               print_int i;
               print_newline ();
-              success v
+              k env v
           | _ -> raise InterpretationError
-        in step env success' error e
+        in step env k' kE e
 
     | AMake e ->
-        let success' v = 
+        let k' _ v = 
           match v with
           | CInt i when i >= 0 ->
-              CArray (Array.make i 0)
-              |> success
+              k env <| CArray (Array.make i 0)
           | _ -> raise InterpretationError
-        in step env success' error e
+        in step env k' kE e
 
     | ArraySet (id, key, v) ->
         if Env.mem id env then
           match (Env.find id env) with
           | CArray a ->
-              let success' k =
-                match k with
-                | CInt k when k >= 0 ->
-                  if k >= Array.length a then
+              let k' _ p =
+                match p with
+                | CInt p when p >= 0 ->
+                  if p >= Array.length a then
                     raise InterpretationError
                   else
-                  let success' v =
+                  let k' _ v =
                     match v with
                     | CInt v ->
-                        a.(k) <- v;
-                        success CUnit
+                        a.(p) <- v;
+                        k env CUnit
                     | _ -> raise InterpretationError
-                  in step env success' error v
+                  in step env k' kE v
                 | _ -> raise InterpretationError
-              in step env success' error key
+              in step env k' kE key
           | _ -> raise InterpretationError
         else raise InterpretationError
 
@@ -208,35 +209,35 @@ let eval success error e =
         if Env.mem id env then
           match (Env.find id env) with
           | CArray a ->
-              let success' k =
-                match k with
-                | CInt k when k >= 0 ->
-                  if k >= Array.length a then
+              let k' _ p =
+                match p with
+                | CInt p when p >= 0 ->
+                  if p >= Array.length a then
                     raise InterpretationError
                   else
-                    success <| CInt a.(k)
+                    k env <| CInt a.(p)
                 | _ -> raise InterpretationError
-              in step env success' error key
+              in step env k' kE key
           | _ -> raise InterpretationError
         else raise InterpretationError
 
     | Raise e ->
-        step env error error e
+        step env kE kE e
 
     | TryWith (l, id, r) ->
-        let error' x = 
+        let kE' _ x = 
           let env' = Env.add id x env in
-          step env' success error r
-        in step env success error' l
+          step env' k kE r
+        in step env k kE' l
 
     | Seq (l, r) ->
-        let success' lc =
+        let k' _ lc =
           if lc = CUnit then
-            step env success error r
+            step env k kE r
           else raise InterpretationError
-        in step env success' error l
+        in step env k' kE l
 
-  in let _ = step env success error e 
+  in let () = step env k kE e 
   in ()
 
 let rec get_type = function

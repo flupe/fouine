@@ -17,11 +17,13 @@
 - integer comparisons: `<`, `>`, `<=`, `>=`, `=`, `<>`.
 - boolean operations: `&&`, `||` and `not`.
 - named function declaration with multiple arguments with the `let` syntax.
+
   ```ocaml
   let f x y =
     x + 2 * y
   ```
 - anonymous function declaration with multiple arguments with the `fun` syntax.
+
   ```ocaml
   fun x y ->
     x + 2 * y
@@ -34,7 +36,6 @@
 - scopes delimited by parens or `begin`, `end`.
 
 ### todo
-- improve recursive definitions.
 - parse negative integers.
 - follow the OCaml spec and allow for global `let` definitions in the outer scope.
 - better error handling when a syntax error occurs.
