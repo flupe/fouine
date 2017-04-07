@@ -1,9 +1,10 @@
 open Ast
 open Print
 open Compiler
+open Structures
 
 let _ =
-  let env = ref Interpreter.Env.empty in
+  let env = ref Env.empty in
   while true do
     print_string ">>> ";
     flush stdout;

@@ -38,11 +38,15 @@ let compile e =
         [Encap (aux b)] @
         [Branch]
 
-    | Let (id, a, b) ->
+    | LetIn (id, a, b) ->
         aux a @
         [Let id] @
         aux b @
         [EndLet id]
+
+    | LetIn (id, a) ->
+        aux a @
+        [Let id]
 
     | Fun (id, a) ->
         [Closure (id, (aux a) @ [Return])]
