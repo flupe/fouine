@@ -48,7 +48,6 @@ let run code =
     | EndLet x :: c, e, s ->
         aux (c, IncrEnv.remove e x, s)
 
-    
     | Apply :: c, e, (ClosureVal (x, c', e')) :: v :: s ->
         aux (c', IncrEnv.add (e' x v), (EncapVal c) :: (EnvVal e) :: s)
 

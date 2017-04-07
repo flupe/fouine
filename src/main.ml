@@ -1,6 +1,5 @@
 open Ast
 open Print
-open Compiler
 open Structures
 
 let _ =
@@ -18,6 +17,8 @@ let _ =
         exit 1;
     in
     print prog;
+
+    Compiler.compile prog |> Bytecode.string_of_bytecode |> print_endline;
 
     try
       let error _ x =

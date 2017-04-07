@@ -44,7 +44,7 @@ let compile e =
         aux b @
         [EndLet id]
 
-    | LetIn (id, a) ->
+    | Let (id, a) ->
         aux a @
         [Let id]
 
