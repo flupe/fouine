@@ -1,55 +1,77 @@
 open Ast
-open Print
+open Bytecode
+open Structures
 
-type bytecode =
-  instruction list
+exception ExecutionError
 
-and instruction
-  = UnitConst
-  | IntConst of int
-  | BoolConst of bool
-  | UnOp of unary_op
-  | BinOp of binary_op
-  | Access of string
-  | UnitClosure of bytecode (* Une Closure qui prend unit comme variable. *)
-  | Closure of string * bytecode
-  | Let of string
-  | EndLet
-  | Apply
-  | Branch
-  | Print
-  | Return
+type value
+  = UnitVal
+  | IntVal of int
+  | BoolVal of bool
+  | EnvVal of value Env.t
+  | EncapVal of bytecode
+  | ClosureVal of identifier * bytecode * value Env.t
 
-(* string_of_instruction : instruction -> string *)
-let rec string_of_instruction = function
-  | UnitConst -> red "UnitConst"
-  | IntConst i -> red "IntConst" ^ " (" ^ green (string_of_int i) ^ ")"
-  | BoolConst b -> 
-      if b then
-        red "BoolConst" ^ " (" ^ green "true" ^ ")"
-      else
-        red "BoolConst" ^ " (" ^ green "false" ^ ")"
-  | UnOp op ->
-      red "UnOp" ^ " (" ^ magenta (string_of_unary_op op) ^ ")"
-  | BinOp op ->
-      red "BinOp" ^ " (" ^ magenta (string_of_binary_op op) ^ ")"
-  | Access id ->
-      red "Access" ^ " (" ^ cyan id ^ ")"
-  | UnitClosure code ->
-      red "UnitClosure" ^ " (" ^ (string_of_bytecode code) ^ ")"
-  | Closure (id, code) ->
-      red "Closure" ^ " (" ^ yellow id ^ ", " ^ (string_of_bytecode code) ^ ")"
-  | Let id -> red "Let" ^ " (" ^ yellow id ^ ")"
-  | EndLet -> red "EndLet"
-  | Apply -> red "Apply"
-  | Branch -> red "Branch"
-  | Print -> red "Print"
-  | Return -> red "Return"
+(** run : Bytecode.bytecode -> unit
+  
+  Runs a given SECD bytecode, as specified in the `Bytecode` module.
+  Raises an ExecutionError if anything goes wrong. *)
+let run code =
+  let rec aux = function
+    | UnitConst :: c, e, s ->
+        aux (c, e, UnitVal :: s)
 
-(* string_of_bytecode : bytecode -> string *)
-and string_of_bytecode = function
-  | h :: h' :: q ->
-      string_of_instruction h ^ "; " ^ string_of_bytecode (h' :: q)
-  | h :: [] ->
-      string_of_instruction h
-  | [] -> ""
+    | IntConst i :: c, e, s ->
+        aux (c, e, IntVal i :: s)
+
+    | BoolConst b :: c, e, s ->
+        aux (c, e, BoolVal b :: s)
+
+    | UnOp op :: c, e, v :: s ->
+        aux (c, e, (compute_unary op v) :: s)
+
+    | BinOp op :: c, e, v :: v' :: s ->
+        aux (c, e, (compute_binary op v v') :: s)
+    
+    | Access x :: c, e, s ->
+        aux (c, e, (IncrEnv.find e x) :: s)
+
+    | Encap c' :: c, e, s ->
+        aux (c, e, (EncapVal c') :: s)
+
+    | Closure (x, c') :: c, e, s ->
+        aux (c, e, (ClosureVal (x, c', e)) :: s)
+
+    | Let x :: c, e, v :: s ->
+        aux (c, IncrEnv.add e x v, s)
+
+    | EndLet x :: c, e, s ->
+        aux (c, IncrEnv.remove e x, s)
+
+    
+    | Apply :: c, e, (ClosureVal (x, c', e')) :: v :: s ->
+        aux (c', IncrEnv.add (e' x v), (EncapVal c) :: (EnvVal e) :: s)
+
+    | Branch :: c, e, (BoolVal b) :: (EncapVal ct) :: (EncapVal cf) :: s ->
+        if b then
+          aux (ct @ c, e, v)
+        else
+          aux (cf @ c, e, v)
+
+    | Return :: c, e, v :: (EncapVal c') :: (EnvVal e') :: s ->
+        aux (c', e', v :: s)
+    
+    | Print :: c, e, (IntVal i) :: s ->
+        print_string "Printed Integer: ";
+        print_int i;
+        print_newline ();
+        aux (c, e, s)
+        
+    | [], e, v :: s -> v
+    | _ ->
+        raise ExecutionError in
+
+  try
+    aux (code, IncrEnv.empty, [])
+  with _ ->
+    raise ExecutionError

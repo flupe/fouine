@@ -3,7 +3,10 @@ open Secd
 
 exception UnimplementedError
 
-(* compile : Ast.t -> Secd.bytecode *)
+(** compile : Ast.t -> Secd.bytecode
+  
+  Transforms a Fouine AST into SECD bytecode, i.e. a list of SECD instructions
+  to be read by the virtual machine implemented in the `Secd` module. *)
 let compile e =
   let rec aux = function
     | Unit   -> [UnitConst]
@@ -31,15 +34,15 @@ let compile e =
 
     | IfThenElse (cond, a, b) ->
         aux cond @
-        [UnitClosure (aux a)] @
-        [UnitClosure (aux b)] @
+        [Encap (aux a)] @
+        [Encap (aux b)] @
         [Branch]
 
     | Let (id, a, b) ->
         aux a @
         [Let id] @
         aux b @
-        [EndLet]
+        [EndLet id]
 
     | Fun (id, a) ->
         [Closure (id, (aux a) @ [Return])]
