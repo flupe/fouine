@@ -5,6 +5,7 @@
 - we can have references of any of the previous atomic types.
 - exceptions are allowed.
 - the `:=` operator returns `unit` to stay consistent with OCaml.
+- **dependency**: for now, to replicate a REPL-like feel, we use `rlwrap`.
 
 
 ## parsing
@@ -17,11 +18,13 @@
 - integer comparisons: `<`, `>`, `<=`, `>=`, `=`, `<>`.
 - boolean operations: `&&`, `||` and `not`.
 - named function declaration with multiple arguments with the `let` syntax.
+
   ```ocaml
   let f x y =
     x + 2 * y
   ```
 - anonymous function declaration with multiple arguments with the `fun` syntax.
+
   ```ocaml
   fun x y ->
     x + 2 * y
@@ -34,7 +37,6 @@
 - scopes delimited by parens or `begin`, `end`.
 
 ### todo
-- improve recursive definitions.
 - parse negative integers.
 - follow the OCaml spec and allow for global `let` definitions in the outer scope.
 - better error handling when a syntax error occurs.
@@ -54,4 +56,6 @@
 - exceptions handling (with continuation).
 
 ### todo
-- global refactor
+- global refactor (maybe not).
+- add several let without `in` keyword.
+- maybe add constant for `val x : expr`.

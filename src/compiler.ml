@@ -1,9 +1,9 @@
 open Ast
-open Secd
+open Bytecode
 
 exception UnimplementedError
 
-(** compile : Ast.t -> Secd.bytecode
+(** compile : Ast.t -> Bytecode.bytecode
   
   Transforms a Fouine AST into SECD bytecode, i.e. a list of SECD instructions
   to be read by the virtual machine implemented in the `Secd` module. *)

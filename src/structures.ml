@@ -29,3 +29,6 @@ let rec equal_types a b =
   | CUnit, CUnit -> true
   | CRef ra, CRef rb -> equal_types !ra !rb
   | _ -> false
+
+type 'a callback =
+  constant Env.t -> constant -> unit
