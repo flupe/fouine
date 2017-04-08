@@ -3,7 +3,7 @@ type _ t
   = Unit : unit t
   | Int : int -> int t
   | Bool : bool -> bool t
-  | Ref : 'a t -> ('a ref) t
+  | Ref : 'a t -> 'a ref t
   | Var : Ast.identifier -> 'a t
 
   (* binops *)
@@ -12,17 +12,16 @@ type _ t
   | Mult : int t * int t -> int t
   | Div : int t * int t -> int t
   | Mod : int t * int t -> int t
-  | Eq : 'a t * 'a t -> bool t
-  | Neq : 'a t * 'a t -> bool t
   | Gt : int t * int t -> bool t
   | Lt : int t * int t -> bool t
   | Geq : int t * int t -> bool t
   | Leq : int t * int t -> bool t
-
   | And : bool t * bool t -> bool t
   | Or : bool t * bool t -> bool t
+  | Eq : 'a t * 'a t -> bool t
+  | Neq : 'a t * 'a t -> bool t
 
-  | SetRef : ('a ref) t * 'a t -> unit t
+  | SetRef : 'a ref t * 'a t -> unit t
 
   | IfThenElse : bool t * 'a t * 'a t -> 'a t
   | Call : ('a -> 'b) t * 'a t -> 'b t
