@@ -1,9 +1,8 @@
-open Ast
+open Typedast
 open Print
 open Structures
 
 let _ =
-  let env = ref Env.empty in
   while true do
     print_string ">>> ";
     flush stdout;
@@ -16,10 +15,13 @@ let _ =
         print_endline "syntax error";
         exit 1;
     in
-    print prog;
+    Ast.print prog;
 
-    Compiler.compile prog |> Bytecode.string_of_bytecode |> print_endline;
+    prog
+    |> infer
+    |> ignore;
 
+    (* 
     try
       let error _ x =
         print_endline (red "Uncaught exception E :");
@@ -32,4 +34,5 @@ let _ =
       Interpreter.eval !env success error prog
     with Interpreter.InterpretationError ->
       print_endline "error while interpreting the program"
+      *)
   done

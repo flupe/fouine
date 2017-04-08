@@ -10,6 +10,8 @@ type binary_op
   = Plus
   | Minus
   | Mult
+  | Div
+  | Mod
   | Or
   | And
   | Lt
@@ -48,6 +50,8 @@ let string_of_binary_op = function
   | Plus -> " + "
   | Minus -> " - "
   | Mult -> " * "
+  | Div -> " / "
+  | Mod -> " mod "
   | Or -> " || "
   | And -> " && "
   | Lt -> " < "

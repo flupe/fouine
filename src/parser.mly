@@ -57,8 +57,6 @@ global:
   | expr { $1 }
 
 expr:
-  | { Unit }
-
   | LET IDENT list_of_idents EQ expr IN expr {
       LetIn ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3, $7)
     }
@@ -111,6 +109,7 @@ func:
 
 enclosed:
   | BEGIN expr END { $2 }
+  | UNIT { Unit }
   | LPAREN expr RPAREN { $2 }
   | INT   { Int $1 }
   | BANG enclosed { Deref ($2) }
