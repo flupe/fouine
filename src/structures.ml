@@ -5,10 +5,23 @@ module Env = Map.Make (struct
   let compare = Pervasives.compare
 end)
 
-module IncrEnv = Map.Make (struct
-  type t = Ast.identifier
-  let compare = Pervasives.compare
-end)
+module IncrEnv = struct
+  type 'a t = 'a list Env.t
+
+  let empty = Env.empty
+
+  let find x (e : 'a t) =
+    List.hd (Env.find x e)
+
+  let add x (v : 'a) (e : 'a t) =
+    try
+      Env.add x (v :: (Env.find x e)) e
+    with _ ->
+      Env.add x [v] e
+
+  let remove x (e : 'a t) =
+    Env.add x (List.tl (Env.find x e)) e
+end
 
 type constant
   = CInt of int

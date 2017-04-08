@@ -44,7 +44,17 @@ let compile e =
         aux b @
         [EndLet id]
 
+    | LetRecIn (id, a, b) -> (* TODO *)
+        aux a @
+        [Let id] @
+        aux b @
+        [EndLet id]
+
     | Let (id, a) ->
+        aux a @
+        [Let id]
+
+    | LetRec (id, a) -> (* TODO *)
         aux a @
         [Let id]
 

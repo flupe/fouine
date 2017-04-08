@@ -18,9 +18,12 @@ let _ =
     in
     print prog;
 
-    Compiler.compile prog |> Bytecode.string_of_bytecode |> print_endline;
+    let bytecode =
+      Compiler.compile prog in
 
-    try
+    bytecode |> Bytecode.string_of_bytecode |> print_endline;
+
+    begin try
       let error _ x =
         print_endline (red "Uncaught exception E :");
         Interpreter.print_result x
@@ -32,4 +35,10 @@ let _ =
       Interpreter.eval !env success error prog
     with Interpreter.InterpretationError ->
       print_endline "error while interpreting the program"
+    end;
+
+    try
+      Secd.run bytecode |> Secd.print_value
+    with _ ->
+      print_endline "error while running the program on the SECD";
   done
