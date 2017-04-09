@@ -10,6 +10,7 @@ type _ vl =
   | VUnit : unit vl
   | VInt : int -> int vl
   | VBool : bool -> bool vl
+  | VRef : 'a vl ref -> 'a ref vl
   | VFun : ('a vl -> 'b md) -> ('a -> 'b) vl
 
 (* continuation monad *)
@@ -24,6 +25,7 @@ and _ nf =
   | NUnit : unit nf
   | NInt : int -> int nf
   | NBool : bool -> bool nf
+  | NRef : 'a nf ref -> 'a ref nf
   | NLam : ('a y -> 'b k -> o) -> ('a -> 'b) nf
 
 and o =
@@ -52,6 +54,12 @@ type _ tm =
 
   | And : bool tm * bool tm -> bool tm
   | Or : bool tm * bool tm -> bool tm
+  | Not : bool tm -> bool tm
+
+  (* ref instanciation *)
+  | Ref : 'a tm -> 'a ref tm
+  | SetRef : 'a ref tm * 'a tm -> unit tm
+  | Deref : 'a ref tm -> 'a tm
 
   | Seq : unit tm * 'a tm -> 'a tm
 
@@ -63,22 +71,21 @@ type _ tp =
   | TUnit : unit tp
   | TInt : int tp
   | TBool : bool tp
-  (* | TRef : 'a tp -> 'a ref tp *)
+  | TRef : 'a tp -> 'a ref tp
   | TArr : 'a tp * 'b tp -> ('a -> 'b) tp
-
-let pf = Printf.sprintf
 
 let rec string_of_type : type a. a tp -> string = function
   | TUnit -> "unit"
   | TInt -> "int"
   | TBool -> "boot"
-(* | TRef t -> pf "(%s ref)" (string_of_type t) *)
-  | TArr (ta, tb) -> pf "(%s -> %s)" (string_of_type ta) (string_of_type tb)
+  | TRef t -> Printf.sprintf "(%s ref)" (string_of_type t)
+  | TArr (ta, tb) -> Printf.sprintf "(%s -> %s)" (string_of_type ta) (string_of_type tb)
 
-let string_of_nf : type a. a nf -> string = function
+let rec string_of_nf : type a. a nf -> string = function
   | NUnit -> "()"
   | NBool b -> if b then "true" else "false"
   | NInt i -> string_of_int i
+  | NRef r -> Printf.sprintf "ref { %s }" (string_of_nf !r)
   | NLam _ -> "\\lambda"
 
 let rec eval : type a. a tm -> a md =
@@ -119,6 +126,16 @@ let rec eval : type a. a tm -> a md =
       <| fun a -> let VBool v = a in if v then eval b c else c a
   | Or (a, b) -> eval a
       <| fun a -> let VBool v = a in if v then c a else eval b c
+  | Not a -> eval a
+      <| fun (VBool a) -> c (VBool (not a))
+
+  | Ref v -> eval v
+      <| fun v -> c (VRef (ref v))
+  | SetRef (r, v) -> eval r
+      <| fun (VRef r) -> eval v
+      <| fun v -> r := v; c VUnit
+  | Deref r -> eval r
+      <| fun (VRef r) -> c !r
 
   | Seq (a, b) -> eval a
       <| fun (VUnit) -> eval b c
@@ -145,6 +162,8 @@ let rec reify : type a. a tp -> a vl -> (a nf -> o) -> o =
     | TInt, VInt x -> c (NInt x)
     | TBool, VBool x -> c (NBool x)
     | TUnit, VUnit -> c NUnit
+    | TRef t, VRef r ->
+        reify t !r <| fun v -> c (NRef (ref v))
 
 and reflect : type a. a tp -> a at -> a md = fun t v ->
   match t, v with
