@@ -247,7 +247,7 @@ let print_result e =
   | CBool b -> print (if b then "true" else "false")
   | CRef r -> print "-"
   | CClosure (id, _, _) -> print (yellow id ^ " -> ast")
-  | CRec (name, id, _, _) -> print (yellow name ^ yellow id ^ " -> ast")
+  | CRec (name, id, _, _) -> print (yellow name ^ " " ^ yellow id ^ " -> ast")
   | CArray a ->
       let rec aux acc = function
         | [x] -> acc ^ (green <| string_of_int x)

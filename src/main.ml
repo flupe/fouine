@@ -33,7 +33,7 @@ let () =
     let prog = parse_input () in
 
     if !debug then
-      print prog;
+      Beautify.print prog;
 
     (* compile and run on SECD *)
     if !machine then begin
