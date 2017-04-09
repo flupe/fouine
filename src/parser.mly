@@ -6,7 +6,7 @@
 %token <int> INT
 %token LPAREN RPAREN BEGIN END SEMI
 %token LET IN IF THEN ELSE DELIM FUN RARROW PRINT REC
-%token PLUS MINUS MULT OR AND LT GT LEQ GEQ EQ NOT NEQ
+%token PLUS MINUS MULT DIV MOD OR AND LT GT LEQ GEQ EQ NOT NEQ
 
 %token TRUE FALSE UNIT
 %token TRY WITH RAISE E
@@ -19,19 +19,22 @@
 %type <Ast.t> expr
 %type <string list> list_of_idents
 
-%nonassoc ELSE
+%nonassoc ELSE TRY WITH
+%nonassoc LPAREN BEGIN AMAKE DOT SETREF
+%nonassoc LET IF THEN DELIM FUN PRINT REC
+%nonassoc LT GT LEQ GEQ EQ NOT NEQ
+
 %right REF
 %right IN
 %right RARROW
+%left MOD
 %left PLUS MINUS OR
 %right SEMI
-%left MULT AND
+%left MULT DIV AND
 %nonassoc LARROW
 %right BANG
+%right UMINUS
 
-%nonassoc NOT LET IF THEN DELIM FUN INT SETREF
-%nonassoc LPAREN RPAREN LT GT LEQ GEQ EQ NEQ IDENT
-%nonassoc BEGIN END TRUE FALSE
 
 %%
 
@@ -57,8 +60,6 @@ global:
   | expr { $1 }
 
 expr:
-  | { Unit }
-
   | LET IDENT list_of_idents EQ expr IN expr {
       LetIn ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3, $7)
     }
@@ -88,10 +89,14 @@ expr:
   | REF expr { Ref ($2) }
   | expr SETREF expr   { BinaryOp (SetRef, $1, $3) }
 
-  | NOT expr        { UnaryOp (Not, $2) }
+  | NOT expr                { UnaryOp (Not, $2) }
+  | MINUS expr %prec UMINUS { UnaryOp (UMinus, $2) }
+
   | expr PLUS expr  { BinaryOp (Plus, $1, $3) }
   | expr MINUS expr { BinaryOp (Minus, $1, $3) }
   | expr MULT expr  { BinaryOp (Mult, $1, $3) }
+  | expr DIV expr   { BinaryOp (Div, $1, $3) }
+  | expr MOD expr   { BinaryOp (Mod, $1, $3) }
   | expr OR expr    { BinaryOp (Or, $1, $3) }
   | expr AND expr   { BinaryOp (And, $1, $3) }
   | expr LT expr    { BinaryOp (Lt, $1, $3) }
@@ -112,6 +117,7 @@ func:
 enclosed:
   | BEGIN expr END { $2 }
   | LPAREN expr RPAREN { $2 }
+  | UNIT { Unit }
   | INT   { Int $1 }
   | BANG enclosed { Deref ($2) }
   | IDENT { Var $1 }

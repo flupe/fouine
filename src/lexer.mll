@@ -27,6 +27,7 @@ rule token = parse
   | ":=" { SETREF }
   | "rec" { REC }
   | "not" { NOT }
+  | "mod" { MOD }
   | "->" { RARROW }
   | "<-" { LARROW }
   | "&&" { AND }
@@ -42,6 +43,7 @@ rule token = parse
   | '+' { PLUS }
   | '-' { MINUS }
   | '*' { MULT }
+  | '/' { DIV }
   | '!' { BANG }
 
   | '=' { EQ }

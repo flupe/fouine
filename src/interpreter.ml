@@ -20,6 +20,8 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
               | Plus -> CInt (lv + rv)
               | Minus -> CInt (lv - rv)
               | Mult -> CInt (lv * rv)
+              | Div -> CInt (lv / rv)
+              | Mod -> CInt (lv mod rv)
               | Lt -> CBool (lv < rv)
               | Gt -> CBool (lv > rv)
               | Leq -> CBool (lv <= rv)
@@ -57,6 +59,9 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
           match c with
           | CBool b ->
               if op = Not then CBool (not b)
+              else raise InterpretationError
+          | CInt i ->
+              if op = UMinus then CInt (-i)
               else raise InterpretationError
           | _ -> raise InterpretationError
         in step env k' kE e
