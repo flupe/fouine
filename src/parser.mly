@@ -19,10 +19,6 @@
 %type <Ast.t> expr
 %type <string list> list_of_idents
 
-%nonassoc ELSE TRY WITH
-%nonassoc LPAREN BEGIN AMAKE DOT SETREF
-%nonassoc LET IF THEN DELIM FUN PRINT REC
-%nonassoc LT GT LEQ GEQ EQ NOT NEQ
 
 %right REF
 %right IN
@@ -33,7 +29,12 @@
 %left MULT DIV AND
 %nonassoc LARROW
 %right BANG
+%nonassoc ELSE TRY WITH
+%nonassoc LPAREN BEGIN AMAKE DOT
+%nonassoc LET IF THEN DELIM FUN PRINT REC
+%nonassoc LT GT LEQ GEQ EQ NOT NEQ
 %right UMINUS
+%right SETREF
 
 
 %%
@@ -73,7 +74,7 @@ expr:
     }
 
   | IF expr THEN expr ELSE expr { IfThenElse ($2, $4, $6) }
-  /* | IF expr THEN expr { IfThenElse ($2, $4, Unit) } */
+  | IF expr THEN expr { IfThenElse ($2, $4, Unit) }
 
   | TRY expr WITH E IDENT RARROW expr { TryWith ($2, $5, $7) }
   | RAISE enclosed { Raise $2 }

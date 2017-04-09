@@ -33,11 +33,12 @@
 - exception handling syntax: `try ... with E x -> ...`.
 - `prInt` command.
 - reference syntax: `ref 2`, `!x`, `x := 3`.
+- sequencing with `;`.
+- `int array` support with `aMake` and the usual `arr.(i)` syntax.
 - chained function calls, even with anonymous functions.
 - scopes delimited by parens or `begin`, `end`.
 
 ### todo
-- parse negative integers.
 - follow the OCaml spec and allow for global `let` definitions in the outer scope.
 - better error handling when a syntax error occurs.
 
@@ -58,4 +59,3 @@
 ### todo
 - global refactor (maybe not).
 - add several let without `in` keyword.
-- maybe add constant for `val x : expr`.
