@@ -45,6 +45,14 @@ type _ tm =
   | Div : int tm * int tm -> int tm
   | Mod : int tm * int tm -> int tm
 
+  | Lt : int tm * int tm -> bool tm
+  | Gt : int tm * int tm -> bool tm
+  | Leq : int tm * int tm -> bool tm
+  | Geq : int tm * int tm -> bool tm
+
+  | And : bool tm * bool tm -> bool tm
+  | Or : bool tm * bool tm -> bool tm
+
   | Seq : unit tm * 'a tm -> 'a tm
 
   | Lam : ('a vl -> 'b tm) -> ('a -> 'b) tm
@@ -92,6 +100,25 @@ let rec eval : type a. a tm -> a md =
   | Mod (a, b) -> eval a
       <| fun (VInt a) -> eval b
       <| fun (VInt b) -> c (VInt (a mod b))
+
+  | Lt (a, b) -> eval a
+      <| fun (VInt a) -> eval b
+      <| fun (VInt b) -> c (VBool (a < b))
+  | Gt (a, b) -> eval a
+      <| fun (VInt a) -> eval b
+      <| fun (VInt b) -> c (VBool (a > b))
+  | Leq (a, b) -> eval a
+      <| fun (VInt a) -> eval b
+      <| fun (VInt b) -> c (VBool (a <= b))
+  | Geq (a, b) -> eval a
+      <| fun (VInt a) -> eval b
+      <| fun (VInt b) -> c (VBool (a >= b))
+
+  (* left evaluation priority *)
+  | And (a, b) -> eval a
+      <| fun a -> let VBool v = a in if v then eval b c else c a
+  | Or (a, b) -> eval a
+      <| fun a -> let VBool v = a in if v then c a else eval b c
 
   | Seq (a, b) -> eval a
       <| fun (VUnit) -> eval b c
