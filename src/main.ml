@@ -85,7 +85,7 @@ let () =
       (* Execute the input. *)
       else begin
         try
-          let error _ x =
+          let error x =
             print_endline <| red "[ERROR]" ^ " Uncaught exception.";
             print_constant x
           in
