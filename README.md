@@ -41,7 +41,7 @@ As usual, the source files for our modules are located inside the `src` folder, 
 
 ## General design choices.
 
-- We provide atomic types `unit`, `int`, `bool`, `array`, `'a ref`, `fun` are supported.
+- We provide atomic types `unit`, `int`, `bool`, `array`, `'a ref`, `fun`.
 - We support exceptions *(only on the interpreter for now)*.
 - We only support arrays of integers *(because the assignment asked us to do so -- we could actually provide arrays of anything, even heterogeneous arrays)*.
 - We support references to any of the previous atomic types, including functions.
@@ -63,7 +63,7 @@ let f = prInt in f 2;;
 - A delimiter `;;` is **required** at the end of a given input.
 - Any integer constants (including negative numbers).
 - Boolean constants: `true` and `false`.
-- Integer arithmetic: `*`, `+`, `-`.
+- Integer arithmetic: `*`, `+`, `-`, `/` and `mod`.
 - Integer comparisons: `<`, `>`, `<=`, `>=`, `=`, `<>`.
 - Boolean operations: `&&`, `||` and `not`.
 - Named function declaration with multiple arguments with the `let` syntax.
