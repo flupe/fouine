@@ -62,17 +62,15 @@ let () =
       print_string ">>> ";
       flush stdout;
       let prog = parse_input () in
-      let bytecode = List.map Compiler.compile prog in
+      let bytecode = List.fold_left (@) [] (List.map Compiler.compile prog) in
 
       if !debug then
-        List.iter (fun x -> print_endline <| Bytecode.string_of_bytecode x) bytecode;
+        print_endline <| Bytecode.string_of_bytecode bytecode;
 
       try
-        List.iter (fun bytes ->
-          Secd.run bytes
-          |> Secd.constant_of_value
-          |> print_constant
-        ) bytecode
+        Secd.run bytecode
+        |> Secd.constant_of_value
+        |> print_constant
       with _ ->
         print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
     with _ ->
