@@ -14,13 +14,13 @@ let () =
   let debug = ref false in
   let machine = ref false in
   let interm = ref "" in
-  let nbe = ref false in
+  (*let nbe = ref false in*)
 
   let speclist =
     [ "-debug", Arg.Set debug, "Display the parsed input."
     ; "-machine", Arg.Set machine, "Compile and run the input from SECD."
     ; "-interm", Arg.Set_string interm, "Compile input to the given output file."
-    ; "-NbE", Arg.Set nbe, "Run input with NbE."
+    (*; "-NbE", Arg.Set nbe, "Run input with NbE."*)
     ]
 
   in Arg.parse speclist (fun x -> ()) "FOUINE INTERPRETOR 2017";
@@ -32,20 +32,32 @@ let () =
 
     let prog = parse_input () in
 
+    (* Print the parsed Ast if needed. *)
     if !debug then
       Beautify.print prog;
 
-    (* compile and run on SECD *)
+    (* Compile the input, and run the bytecode on the SECD machine. *)
     if !machine then begin
       let bytecode = Compiler.compile prog in
-      print_endline <| Bytecode.string_of_bytecode bytecode;
 
-      (* todo: handle interm *)
+      if !debug then
+        print_endline <| Bytecode.string_of_bytecode bytecode;
+
       try
         Secd.run bytecode |> Secd.print_value
       with _ ->
         print_endline "error while running the program on the SECD";
     end
+
+    (* Compile the input, and output it to a bytecode file. *)
+    else if !interm <> "" then begin
+      let bytecode = Compiler.compile prog in
+      let chan = open_out_bin !interm in
+      Marshal.to_channel chan bytecode [];
+      close_out chan
+    end
+
+    (* Execute the input. *)
     else begin
       try
         let error _ x =

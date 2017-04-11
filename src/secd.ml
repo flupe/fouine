@@ -10,9 +10,12 @@ type value
   = UnitVal
   | IntVal of int
   | BoolVal of bool
+  | RefVal of value ref
+  | ArrayVal of value array
   | EnvVal of value IncrEnv.t
   | EncapVal of bytecode
   | ClosureVal of identifier * bytecode * value IncrEnv.t
+  | RecClosureVal of identifier * identifier * bytecode * value IncrEnv.t
 
 let rec print_value = function
   | UnitVal -> print_endline "()"
@@ -20,24 +23,32 @@ let rec print_value = function
   | BoolVal b -> print_endline (if b then "true" else "false")
   | _ -> print_endline @@ red "-"
 
+let print_env e =
+  Env.bindings e
+  |> List.iter (fun (k, v) ->
+      print_string k;
+      print_string " ";
+      List.iter print_value v)
+
 let compute_unary op v = match op, v with
   | Not, BoolVal b -> BoolVal (not b)
   | _ -> raise TypeError
 
 let compute_binary op v v' = match op, v, v' with
-  | Plus,  IntVal i,  IntVal j  -> IntVal (i + j)
-  | Minus, IntVal i,  IntVal j  -> IntVal (i - j)
-  | Mult,  IntVal i,  IntVal j  -> IntVal (i * j)
-  | Or,    BoolVal i, BoolVal j -> BoolVal (i || j)
-  | And,   BoolVal i, BoolVal j -> BoolVal (i && j)
-  | Lt,    IntVal i,  IntVal j  -> BoolVal (i < j)
-  | Gt,    IntVal i,  IntVal j  -> BoolVal (i > j)
-  | Leq,   IntVal i,  IntVal j  -> BoolVal (i <= j)
-  | Geq,   IntVal i,  IntVal j  -> BoolVal (i >= j)
-  | Eq,    IntVal i,  IntVal j  -> BoolVal (i = j)
-  | Eq,    BoolVal i, BoolVal j -> BoolVal (i = j)
-  | Neq,   IntVal i,  IntVal j  -> BoolVal (i <> j)
-  | Neq,   BoolVal i, BoolVal j -> BoolVal (i <> j)
+  | Plus,   IntVal i,  IntVal j  -> IntVal (i + j)
+  | Minus,  IntVal i,  IntVal j  -> IntVal (i - j)
+  | Mult,   IntVal i,  IntVal j  -> IntVal (i * j)
+  | Or,     BoolVal i, BoolVal j -> BoolVal (i || j)
+  | And,    BoolVal i, BoolVal j -> BoolVal (i && j)
+  | Lt,     IntVal i,  IntVal j  -> BoolVal (i < j)
+  | Gt,     IntVal i,  IntVal j  -> BoolVal (i > j)
+  | Leq,    IntVal i,  IntVal j  -> BoolVal (i <= j)
+  | Geq,    IntVal i,  IntVal j  -> BoolVal (i >= j)
+  | Eq,     IntVal i,  IntVal j  -> BoolVal (i = j)
+  | Eq,     BoolVal i, BoolVal j -> BoolVal (i = j)
+  | Neq,    IntVal i,  IntVal j  -> BoolVal (i <> j)
+  | Neq,    BoolVal i, BoolVal j -> BoolVal (i <> j)
+  | SetRef, RefVal r,  _         -> r := v'; UnitVal
   | _ -> raise TypeError
 
 (** run : Bytecode.bytecode -> unit
@@ -55,6 +66,29 @@ let run code =
     | BoolConst b :: c, e, s ->
         aux (c, e, BoolVal b :: s)
 
+    | RefConst :: c, e, v :: s ->
+        aux (c, e, RefVal (ref v) :: s)
+
+    | Deref :: c, e, RefVal r :: s ->
+        aux (c, e, !r :: s)
+
+    | ArrayConst :: c, e, IntVal i :: s ->
+        aux (c, e, ArrayVal (Array.make i (IntVal 0)) :: s)
+
+    | ArraySet x :: c, e, v :: IntVal key :: s ->
+        begin match IncrEnv.find x e with
+          | ArrayVal a ->
+              a.(key) <- v;
+              aux (c, e, UnitVal :: s)
+          | _ -> raise ExecutionError
+        end
+
+    | ArrayRead x :: c, e, IntVal key :: s ->
+        begin match IncrEnv.find x e with        
+          | ArrayVal a -> aux (c, e, a.(key) :: s)
+          | _ -> raise ExecutionError
+        end
+
     | UnOp op :: c, e, v :: s ->
         aux (c, e, (compute_unary op v) :: s)
 
@@ -70,6 +104,9 @@ let run code =
     | Closure (x, c') :: c, e, s ->
         aux (c, e, (ClosureVal (x, c', e)) :: s)
 
+    | RecClosure(f, x, c') :: c, e, s ->
+        aux (c, e, (RecClosureVal (f, x, c', e)) :: s)
+
     | Let x :: c, e, v :: s ->
         aux (c, IncrEnv.add x v e, s)
 
@@ -78,6 +115,10 @@ let run code =
 
     | Apply :: c, e, (ClosureVal (x, c', e')) :: v :: s ->
         aux (c', IncrEnv.add x v e', (EncapVal c) :: (EnvVal e) :: s)
+
+    | Apply :: c, e, (RecClosureVal (f, x, c', e') as r) :: v :: s ->
+        let e'' = IncrEnv.add f r e' in
+        aux (c', IncrEnv.add x v e'', (EncapVal c) :: (EnvVal e) :: s)
 
     | Branch :: c, e, (EncapVal cf) :: (EncapVal ct) :: (BoolVal b) :: s ->
         if b then
@@ -101,4 +142,4 @@ let run code =
   try
     aux (code, IncrEnv.empty, [])
   with _ ->
-    raise ExecutionError
+      raise ExecutionError

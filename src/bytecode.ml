@@ -8,11 +8,17 @@ and instruction
   = UnitConst
   | IntConst of int
   | BoolConst of bool
+  | RefConst
+  | ArrayConst
+  | Deref
+  | ArraySet of identifier
+  | ArrayRead of identifier
   | UnOp of unary_op
   | BinOp of binary_op
   | Access of identifier
   | Encap of bytecode
   | Closure of identifier * bytecode
+  | RecClosure of identifier * identifier * bytecode
   | Let of identifier
   | EndLet of identifier
   | Apply
@@ -29,6 +35,12 @@ let rec string_of_instruction = function
         red "BoolConst" ^ " (" ^ green "true" ^ ")"
       else
         red "BoolConst" ^ " (" ^ green "false" ^ ")"
+  | RefConst -> red "RefConst"
+  | ArrayConst -> red "ArrayConst"
+  | Deref -> red "Deref"
+
+  | ArraySet id -> red "ArraySet" ^ " (" ^ cyan id ^ ")"
+  | ArrayRead id -> red "ArrayRead" ^ " (" ^ cyan id ^ ")"
 
   | UnOp op ->
       red "UnOp" ^ " (" ^ magenta (string_of_unary_op op) ^ ")"
@@ -44,6 +56,9 @@ let rec string_of_instruction = function
 
   | Closure (id, code) ->
       red "Closure" ^ " (" ^ yellow id ^ ", " ^ (string_of_bytecode code) ^ ")"
+
+  | RecClosure (f, id, code) ->
+      red "RecClosure" ^ " (" ^ yellow f ^ ", " ^ yellow id ^ ", " ^ (string_of_bytecode code) ^ ")"
 
   | Let id -> red "Let" ^ " (" ^ yellow id ^ ")"
   | EndLet id -> red "EndLet" ^ " (" ^ yellow id ^ ")"
