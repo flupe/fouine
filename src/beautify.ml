@@ -9,11 +9,11 @@ let p inline offset txt =
     print_string offset;
   print_string txt
 
-let rec get_type = function
+let rec string_of_type = function
   | CInt _ -> green "int"
   | CBool _ -> yellow "bool"
   (* we enforce non-cyclic references so it can't loop forever *)
-  | CRef r -> get_type !r ^ red " ref"
+  | CRef r -> string_of_type !r ^ red " ref"
   | CClosure _ -> blue "fun"
   | CRec _ -> blue "rec fun"
   | CArray _ -> cyan "int array"
@@ -28,9 +28,11 @@ let rec print_constant_aux env i o e =
   | CBool b -> p (if b then "true" else "false")
   | CRef r -> p "-"
   | CClosure (id, e, env) ->
-      p ("fun " ^ yellow id ^ " -> ");
+      p (blue "fun " ^ yellow id ^ " -> ");
       print_aux env true (o ^ indent) e
-  | CRec (name, id, _, _) -> p (yellow name ^ " " ^ yellow id ^ " -> ast")
+  | CRec (name, id, e, _) ->
+      p (blue "fun " ^ yellow id ^ " -> ");
+      print_aux env true (o ^ indent) e
   | CArray a ->
       let rec aux acc = function
         | [x] -> acc ^ (green <| string_of_int x)
@@ -61,7 +63,9 @@ and print_aux env i o e =
   | Ref r -> p i o (red "ref "); esc true o r
   | Var id ->
       if Env.mem id env then
-        print_constant_aux env i o <| Env.find id env
+        match Env.find id env with
+        | CRec (name, _, _, _) -> p i o name
+        | x -> print_constant_aux env i o <| Env.find id env
       else
         p i o (cyan id)
 
@@ -132,7 +136,7 @@ let print_ast e =
   print_endline ";;"
 
 let print_constant e =
-  print_string <| "- : " ^ get_type e ^ " = ";
+  print_string <| "- : " ^ string_of_type e ^ " = ";
   print_constant_aux Env.empty true "" e;
   print_newline ()
 
