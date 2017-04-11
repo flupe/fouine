@@ -1,5 +1,3 @@
-open Print
-
 type identifier =
   string
 

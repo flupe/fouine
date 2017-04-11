@@ -1,6 +1,7 @@
 open Ast
 open Print
 open Structures
+open Beautify
 
 let parse_input () =
   try
@@ -34,10 +35,10 @@ let () =
 
     (* Print the parsed Ast if needed. *)
     if !debug then
-      Beautify.print prog;
+      print_ast prog;
 
     (* Compile the input, and run the bytecode on the SECD machine. *)
-    if !machine then begin
+    (*if !machine then begin
       let bytecode = Compiler.compile prog in
 
       if !debug then
@@ -58,18 +59,18 @@ let () =
     end
 
     (* Execute the input. *)
-    else begin
+    else begin*)
       try
         let error _ x =
           print_endline (red "Uncaught exception E :");
-          Interpreter.print_result x
+          print_constant x
         in
         let success e x =
           env := e;
-          Interpreter.print_result x
+          print_constant x
         in
         Interpreter.eval !env success error prog
       with Interpreter.InterpretationError ->
         print_endline "error while interpreting the program"
-    end
+    (*end*)
   done

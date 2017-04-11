@@ -1,6 +1,6 @@
-# parser & interpreter for the fouine programming language
+# Parser & interpreter for the fouine programming language
 
-## notes
+## Notes
 - basic atomic types: `int`, `bool`, `unit`, `'a ref`, `fun` are supported.
 - we can have references of any of the previous atomic types.
 - exceptions are allowed.
@@ -8,11 +8,11 @@
 - **dependency**: for now, to replicate a REPL-like feel, we use `rlwrap`.
 
 
-## parsing
+## Parsing
 
-### currently supported syntax
+### Currently supported syntax
 - a delimiter `;;` is **required** at the end of a given input.
-- positive integer constants.
+- any integer constants (including negative numbers).
 - boolean constants: `true` and `false`.
 - integer arithmetic: `*`, `+`, `-`.
 - integer comparisons: `<`, `>`, `<=`, `>=`, `=`, `<>`.
@@ -38,7 +38,7 @@
 - chained function calls, even with anonymous functions.
 - scopes delimited by parens or `begin`, `end`.
 
-### todo
+### Todo
 - follow the OCaml spec and allow for global `let` definitions in the outer scope.
 - better error handling when a syntax error occurs.
 
@@ -47,7 +47,8 @@
 
 ### implemented already
 - all arithmetical and boolean operations.
-- control flow (`if`).
+- control flow (`if`, `else`).
+  Note that, as in OCaml, a `else` branch is optional in which case a `unit` value is implied.
 - variable definition and fetching through environments.
 - closures and variable propagation.
 - function calls, currying.

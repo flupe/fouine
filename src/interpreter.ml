@@ -234,31 +234,3 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
 
   in let () = step env k kE e 
   in ()
-
-let rec get_type = function
-  | CInt _ -> green "int"
-  | CBool _ -> yellow "bool"
-  (* we enforce non-cyclic references so it can't loop forever *)
-  | CRef r -> get_type !r ^ red " ref"
-  | CClosure _ -> blue "fun"
-  | CRec _ -> blue "rec fun"
-  | CArray _ -> cyan "int array"
-  | CUnit -> magenta "unit"
-
-let print_result e =
-  let print txt = print_endline @@ "- : " ^ get_type e ^ " = " ^ txt in
-  match e with
-  | CInt i -> print (string_of_int i)
-  | CBool b -> print (if b then "true" else "false")
-  | CRef r -> print "-"
-  | CClosure (id, _, _) -> print (yellow id ^ " -> ast")
-  | CRec (name, id, _, _) -> print (yellow name ^ " " ^ yellow id ^ " -> ast")
-  | CArray a ->
-      let rec aux acc = function
-        | [x] -> acc ^ (green <| string_of_int x)
-        | x :: t -> aux (acc ^ green (string_of_int x) ^ "; ") t
-        | _ -> acc
-      in let values = aux "" (Array.to_list a)
-      in print <| "[| " ^ values ^ " |]"
-
-  | CUnit -> print "()"
