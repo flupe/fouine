@@ -150,7 +150,7 @@ let run code =
         aux (c', e', v :: s)
         
     | [], e, v :: s -> v
-    | _ -> UnitVal
+    | _ -> UnitVal in
 
   try
     aux (code, base, [])
