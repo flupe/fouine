@@ -36,8 +36,8 @@ type t
   | Deref of t
   | Print of t
   | AMake of t
-  | ArraySet of identifier * t * t
-  | ArrayRead of identifier * t
+  | ArraySet of t * t * t
+  | ArrayRead of t * t
 
 let string_of_binary_op = function
   | Plus   -> "+"

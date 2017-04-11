@@ -74,12 +74,17 @@ and print_ast i o = function
       p i o (blue "fun " ^ yellow id ^ " ->\n");
         print_ast false (o ^ indent) fn
 
-  | ArraySet (id, key, v) ->
-      p i o (id ^ ".("); esc true (o ^ indent) key;
-      print_string ") <- "; esc true (o ^ indent) v
+  | ArraySet (arr, key, v) ->
+      esc i o arr;
+      print_string ".(";
+      esc true (o ^ indent) key;
+      print_string ") <- ";
+      esc true (o ^ indent) v
 
-  | ArrayRead (id, key) ->
-      p i o (id ^ ".("); esc true (o ^ indent) key; print_string ")"
+  | ArrayRead (arr, key) ->
+      esc i o arr;
+      print_string ".(";
+      esc true (o ^ indent) key; print_string ")"
 
 let print e =
   print_ast true "" e;

@@ -178,9 +178,9 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
           | _ -> raise InterpretationError
         in step env k' kE e
 
-    | ArraySet (id, key, v) ->
-        if Env.mem id env then
-          match (Env.find id env) with
+    | ArraySet (arr, key, v) ->
+        let k' _ arr = 
+          match arr with
           | CArray a ->
               let k' _ p =
                 match p with
@@ -198,11 +198,11 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
                 | _ -> raise InterpretationError
               in step env k' kE key
           | _ -> raise InterpretationError
-        else raise InterpretationError
+        in step env k' kE arr
 
-    | ArrayRead (id, key) ->
-        if Env.mem id env then
-          match (Env.find id env) with
+    | ArrayRead (arr, key) ->
+        let k' _ arr =
+          match arr with
           | CArray a ->
               let k' _ p =
                 match p with
@@ -214,7 +214,7 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
                 | _ -> raise InterpretationError
               in step env k' kE key
           | _ -> raise InterpretationError
-        else raise InterpretationError
+        in step env k' kE arr
 
     | Raise e ->
         step env kE kE e

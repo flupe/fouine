@@ -16,10 +16,6 @@ type _ vl =
 (* continuation monad *)
 and 'a md = ('a vl -> o) -> o
 
-and 'a at =
-  | AVar of 'a y
-  | AVal of 'a v
-
 (* target language: beta-normal, mu-long, lambda-terms *)
 and _ nf =
   | NUnit : unit nf
@@ -32,11 +28,18 @@ and o =
   | SRet : 'a k * 'a nf -> o
   | SBind : ('a -> 'b) at * 'a nf * ('b v -> o) -> o
   | SIf : bool at * o * o -> o
-  | SEnd : 'a tp * 'a nf -> o
+  | SLet : 'a nf * ('a y -> o) -> o
+  | SNorm : 'a nf -> o
+
+and 'a at =
+  | AVar of 'a y
+  | AVal of 'a v
 
 (* source language *)
 type _ tm =
   | Var : 'a vl -> 'a tm
+
+  | Let : 'a tm * ('a vl ->'b tm) -> 'b tm
 
   | If : bool tm * 'a tm * 'a tm -> 'a tm
   | CC : (('a -> 'b) -> 'a) tm -> 'a tm
@@ -46,6 +49,7 @@ type _ tm =
   | Mult : int tm * int tm -> int tm
   | Div : int tm * int tm -> int tm
   | Mod : int tm * int tm -> int tm
+  | UMinus : int tm -> int tm
 
   | Lt : int tm * int tm -> bool tm
   | Gt : int tm * int tm -> bool tm
@@ -63,7 +67,7 @@ type _ tm =
 
   | Seq : unit tm * 'a tm -> 'a tm
 
-  | Lam : ('a vl -> 'b tm) -> ('a -> 'b) tm
+  | Fun : ('a vl -> 'b tm) -> ('a -> 'b) tm
   | App : ('a -> 'b) tm * 'a tm -> 'b tm
 
 (* our language types *)
@@ -86,7 +90,15 @@ let rec string_of_nf : type a. a nf -> string = function
   | NBool b -> if b then "true" else "false"
   | NInt i -> string_of_int i
   | NRef r -> Printf.sprintf "ref { %s }" (string_of_nf !r)
-  | NLam _ -> "\\lambda"
+  | NLam _ -> "<lambda>"
+
+module Env = Map.Make (struct
+  type t = string
+  let compare = Pervasives.compare
+end)
+
+type packed = Pack : 'a vl -> packed
+type env = packed Env.t
 
 let rec eval : type a. a tm -> a md =
   fun e c -> match e with
@@ -107,6 +119,8 @@ let rec eval : type a. a tm -> a md =
   | Mod (a, b) -> eval a
       <| fun (VInt a) -> eval b
       <| fun (VInt b) -> c (VInt (a mod b))
+  | UMinus a -> eval a
+      <| fun (VInt a) -> c (VInt (-a))
 
   | Lt (a, b) -> eval a
       <| fun (VInt a) -> eval b
@@ -138,9 +152,9 @@ let rec eval : type a. a tm -> a md =
       <| fun (VRef r) -> c !r
 
   | Seq (a, b) -> eval a
-      <| fun (VUnit) -> eval b c
+      <| fun VUnit -> eval b c
 
-  | Lam f -> c <| VFun (fun x k -> eval (f x) k)
+  | Fun f -> c <| VFun (fun x k -> eval (f x) k)
   | App (m, n) ->
       eval m
       <| fun (VFun f) -> eval n
@@ -172,10 +186,12 @@ and reflect : type a. a tp -> a at -> a md = fun t v ->
         <| VFun (fun x k -> reify a x 
         <| fun x -> SBind (f, x, fun v -> reflect b (AVal v) (fun v -> k v)))
   | TBool, b -> fun c -> SIf (b, c (VBool true), c (VBool false))
+  | TInt, i -> fun c -> c (VInt i)
   | _ -> failwith "error"
 
-let nbe t m k =
-  eval m <| fun m -> reify t m k
+let nbe : type a. a tp -> a tm -> (a nf -> o) -> o =
+  fun t m k ->
+    eval m <| fun m -> reify t m k
 
 let id = VFun (fun x k -> k x)
 let app = VFun (fun (VFun f) k -> k (VFun (fun x k -> f x (fun v -> k v))))

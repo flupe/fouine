@@ -47,7 +47,7 @@ list_of_idents:
   | list_of_idents IDENT { $2 :: $1 }
 
 array_access:
-  | IDENT DOT LPAREN expr RPAREN { $1, $4 }
+  | enclosed DOT LPAREN expr RPAREN { $1, $4 }
 
 global:
   | LET IDENT list_of_idents EQ expr {
@@ -83,8 +83,8 @@ expr:
   | AMAKE enclosed { AMake $2 }
 
   | array_access LARROW expr {
-      let id, key = $1 in
-      ArraySet (id, key, $3)
+      let arr, key = $1 in
+      ArraySet (arr, key, $3)
     }
 
   | REF expr { Ref ($2) }
@@ -124,8 +124,8 @@ enclosed:
   | IDENT { Var $1 }
   | boolean { $1 }
   | array_access {
-      let id, key = $1 in
-      ArrayRead (id, key)
+      let arr, e = $1 in
+      ArrayRead (arr, e)
     }
 
 boolean:
