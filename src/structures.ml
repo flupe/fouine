@@ -27,6 +27,7 @@ type constant
   = CInt of int
   | CBool of bool
   | CRef of constant ref
+  | CMetaClosure of (constant -> constant)
   | CClosure of Ast.identifier * Ast.t * constant Env.t
   | CRec of Ast.identifier * Ast.identifier * Ast.t * constant Env.t
   | CArray of int array

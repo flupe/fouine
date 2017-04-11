@@ -56,10 +56,10 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
     | UnaryOp (op, e) ->
         let k' _ c =
           k env <|
-          match c with
+          match c with (*
           | CBool b ->
               if op = Not then CBool (not b)
-              else raise InterpretationError
+              else raise InterpretationError *)
           | CInt i ->
               if op = UMinus then CInt (-i)
               else raise InterpretationError
@@ -148,10 +148,10 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
           | _ -> raise InterpretationError
         in step env k' kE e
 
-    | Ref e ->
+    (*| Ref e ->
         let k' _ v =
           k env <| CRef (ref v)
-        in step env k' kE e
+        in step env k' kE e*)
 
     | Deref e ->
         let k' _ v =
@@ -160,7 +160,7 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
           | _ -> raise InterpretationError
         in step env k' kE e
 
-    | Print e ->
+    (*| Print e ->
         let k' _ v = 
           match v with
           | CInt i ->
@@ -168,15 +168,15 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
               print_newline ();
               k env v
           | _ -> raise InterpretationError
-        in step env k' kE e
+        in step env k' kE e*)
 
-    | ArrayMake e ->
+    (*| ArrayMake e ->
         let k' _ v = 
           match v with
           | CInt i when i >= 0 ->
               k env <| CArray (Array.make i 0)
           | _ -> raise InterpretationError
-        in step env k' kE e
+        in step env k' kE e*)
 
     | ArraySet (arr, key, v) ->
         let k' _ arr = 

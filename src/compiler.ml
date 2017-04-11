@@ -14,17 +14,9 @@ let compile e =
     | Bool b -> [BoolConst b]
     | Var x  -> [Access x]
 
-    | Ref a ->
-        aux a @
-        [RefConst]
-
     | Deref a ->
         aux a @
         [Deref]
-
-    | ArrayMake a ->
-        aux a @
-        [ArrayConst]
 
     | ArraySet (a, k, v) ->
         aux a @
@@ -85,10 +77,6 @@ let compile e =
 
     | Fun (id, a) ->
         [Closure (id, (aux a) @ [Return])]
-
-    | Print (a) ->
-        aux a @
-        [Print]
 
     | _ ->
         raise UnimplementedError in

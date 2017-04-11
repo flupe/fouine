@@ -60,7 +60,6 @@ and print_aux env i o e =
   | Int k -> p i o (green @@ string_of_int k)
   | Unit -> p i o (magenta "()")
   | Bool b -> p i o (yellow (if b then "true" else "false"))
-  | Ref r -> p i o (red "ref "); esc true o r
   | Var id ->
       if Env.mem id env then
         match Env.find id env with
@@ -72,8 +71,6 @@ and print_aux env i o e =
   | Call (fn, x) -> esc i o fn; print_string " "; esc true o x
   | Raise e -> p i o (red "raise "); esc true o e
   | Deref e -> p i o ("!"); esc true (o ^ indent) e
-  | Print e -> p i o (blue "prInt "); esc true (o ^ indent) e
-  | ArrayMake e -> p i o (blue "aMake "); esc true (o ^ indent) e
   | Seq (l, r) -> esc i o l; print_endline ";"; esc false o r
   | UnaryOp (op, r) -> p i o (string_of_unary_op op ^ " "); esc true o r
 
@@ -141,5 +138,3 @@ let print_constant e =
   print_string <| "- : " ^ string_of_type e ^ " = ";
   print_constant_aux Env.empty true "" e;
   print_newline ()
-
-

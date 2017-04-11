@@ -16,6 +16,7 @@ type value
   | EncapVal of bytecode
   | ClosureVal of identifier * bytecode * value IncrEnv.t
   | RecClosureVal of identifier * identifier * bytecode * value IncrEnv.t
+  | MetaClosureVal of (value -> value)
 
 let rec constant_of_value = function
   | UnitVal    -> CUnit
@@ -31,7 +32,6 @@ let rec constant_of_value = function
   | _ -> raise TypeError
 
 let compute_unary op v = match op, v with
-  | Not, BoolVal b -> BoolVal (not b)
   | UMinus, IntVal i -> IntVal ((-1) * i)
   | _ -> raise TypeError
 
@@ -55,6 +55,30 @@ let compute_binary op v v' = match op, v, v' with
   | _ -> raise TypeError
 
 
+(** A base environment which contains meta-closures to support "special"
+    operations like `ref`, `not`, `prInt` or `aMake`. *)
+let base =
+  IncrEnv.empty
+
+  |> IncrEnv.add "ref" (MetaClosureVal (fun x ->
+      RefVal (ref x)))
+
+  |> IncrEnv.add "not" (MetaClosureVal (fun x -> match x with
+      | BoolVal b -> BoolVal (not b)
+      | _ -> raise TypeError))
+
+  |> IncrEnv.add "prInt" (MetaClosureVal (fun x -> match x with
+      | IntVal i ->
+          print_int i;
+          print_newline ();
+          UnitVal
+      | _ -> raise TypeError))
+
+  |> IncrEnv.add "aMake" (MetaClosureVal (fun x -> match x with
+      | IntVal i -> ArrayVal (Array.make i (IntVal 0))
+      | _ -> raise TypeError))
+
+
 (** run : Bytecode.bytecode -> unit
   
   Runs a given SECD bytecode, as specified in the `Bytecode` module.
@@ -70,14 +94,8 @@ let run code =
     | BoolConst b :: c, e, s ->
         aux (c, e, BoolVal b :: s)
 
-    | RefConst :: c, e, v :: s ->
-        aux (c, e, RefVal (ref v) :: s)
-
     | Deref :: c, e, RefVal r :: s ->
         aux (c, e, !r :: s)
-
-    | ArrayConst :: c, e, IntVal i :: s ->
-        aux (c, e, ArrayVal (Array.make i (IntVal 0)) :: s)
 
     | ArraySet :: c, e, v :: IntVal key :: ArrayVal a :: s ->
         a.(key) <- v;
@@ -101,7 +119,7 @@ let run code =
     | Closure (x, c') :: c, e, s ->
         aux (c, e, (ClosureVal (x, c', e)) :: s)
 
-    | RecClosure(f, x, c') :: c, e, s ->
+    | RecClosure (f, x, c') :: c, e, s ->
         aux (c, e, (RecClosureVal (f, x, c', e)) :: s)
 
     | Let x :: c, e, v :: s ->
@@ -117,6 +135,9 @@ let run code =
         let e'' = IncrEnv.add f r e' in
         aux (c', IncrEnv.add x v e'', (EncapVal c) :: (EnvVal e) :: s)
 
+    | Apply :: c, e, (MetaClosureVal f) :: v :: s ->
+        aux (c, e, (f v) :: s)
+
     | Branch :: c, e, (EncapVal cf) :: (EncapVal ct) :: (BoolVal b) :: s ->
         if b then
           aux (ct @ c, e, s)
@@ -125,17 +146,12 @@ let run code =
 
     | Return :: c, e, v :: (EncapVal c') :: (EnvVal e') :: s ->
         aux (c', e', v :: s)
-    
-    | Print :: c, e, (IntVal i) :: s ->
-        print_int i;
-        print_newline ();
-        aux (c, e, s)
         
     | [], e, v :: s -> v
     | _, _, s ->
         raise ExecutionError in
 
   try
-    aux (code, IncrEnv.empty, [])
+    aux (code, base, [])
   with _ ->
       raise ExecutionError

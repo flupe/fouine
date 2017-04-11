@@ -79,18 +79,13 @@ expr:
   | TRY expr WITH E pattern RARROW expr { TryWith ($2, $5, $7) }
   | RAISE enclosed { Raise $2 }
 
-  | PRINT enclosed { Print $2 }
-  | AMAKE enclosed { ArrayMake $2 }
-
   | array_access LARROW expr {
       let arr, key = $1 in
       ArraySet (arr, key, $3)
     }
 
-  | REF expr { Ref ($2) }
   | expr SETREF expr   { BinaryOp (SetRef, $1, $3) }
 
-  | NOT expr                { UnaryOp (Not, $2) }
   | MINUS expr %prec UMINUS { UnaryOp (UMinus, $2) }
 
   | expr PLUS expr  { BinaryOp (Plus, $1, $3) }

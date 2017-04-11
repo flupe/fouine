@@ -2,7 +2,7 @@ type identifier =
   string
 
 type unary_op
-  = Not | UMinus
+  = UMinus
 
 type binary_op
   = Plus | Minus | Mult | Or
@@ -15,7 +15,6 @@ type t
   | Var  of identifier
   | Int  of int
   | Bool of bool
-  | Ref  of t
 
   | BinaryOp of binary_op * t * t
   | UnaryOp  of unary_op  * t
@@ -28,12 +27,10 @@ type t
   | IfThenElse of t * t * t
   | Fun of identifier * t
   | Call of t * t
-  | Raise of t
   | TryWith of t * t * t
+  | Raise of t
   | Seq of t * t
   | Deref of t
-  | Print of t
-  | ArrayMake of t
   | ArraySet of t * t * t
   | ArrayRead of t * t
 
@@ -54,6 +51,4 @@ let string_of_binary_op = function
   | Mod -> "mod"
 
 let string_of_unary_op = function
-  | Not -> "not"
   | UMinus -> "-"
-
