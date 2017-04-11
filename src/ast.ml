@@ -29,7 +29,7 @@ type t
   | Fun of identifier * t
   | Call of t * t
   | Raise of t
-  | TryWith of t * identifier * t
+  | TryWith of t * t * t
   | Seq of t * t
   | Deref of t
   | Print of t

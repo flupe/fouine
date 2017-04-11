@@ -112,7 +112,9 @@ and print_aux env i o e =
   | TryWith (fn, e, fail) ->
       p i o (red "try\n");
         esc false (o ^ indent) fn;
-      p false o (red "\nwith " ^ blue "E " ^ e ^ " ->\n");
+      p false o (red "\nwith " ^ blue "E ");
+      print_aux true (o ^ indent) e;
+      p true o " ->\n";
         esc false (o ^ indent) fail
 
   | Fun (id, fn) ->

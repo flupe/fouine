@@ -219,10 +219,21 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
     | Raise e ->
         step env kE kE e
 
-    | TryWith (l, id, r) ->
+    | TryWith (l, p, r) ->
         let kE' _ x = 
-          let env' = Env.add id x env in
-          step env' k kE r
+          (* pseudo pattern matching *)
+          (* only allowed on ints or catch-all identifiers *)
+          match p, x with
+            | Int p, CInt v ->
+                if p = v then
+                  step env k kE r
+                else
+                  kE env x
+            | Var id, _ ->
+                let env' = Env.add id x env in
+                step env' k kE r
+
+            | _ -> raise InterpretationError
         in step env k kE' l
 
     | Seq (l, r) ->

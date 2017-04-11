@@ -76,7 +76,7 @@ expr:
   | IF expr THEN expr ELSE expr { IfThenElse ($2, $4, $6) }
   | IF expr THEN expr %prec NOELSE { IfThenElse ($2, $4, Unit) }
 
-  | TRY expr WITH E IDENT RARROW expr { TryWith ($2, $5, $7) }
+  | TRY expr WITH E pattern RARROW expr { TryWith ($2, $5, $7) }
   | RAISE enclosed { Raise $2 }
 
   | PRINT enclosed { Print $2 }
@@ -131,3 +131,8 @@ enclosed:
 boolean:
   | TRUE { Bool true }
   | FALSE { Bool false }
+
+/* used for matching exceptions, quite rudimentary */
+pattern:
+  | INT { Int $1 }
+  | IDENT { Var $1 }
