@@ -50,9 +50,36 @@ let () =
     close_in chan
   end
 
-  (* Start a REPL. *)
+  (* Compile the input, and run the bytecode on the SECD machine. *)
+  else if !machine then begin
+    print_string ">>> ";
+    flush stdout;
+    
+    try
+      let prog = parse_input () in
+
+      if !debug then
+        print_ast prog;
+
+      let bytecode = Compiler.compile prog in
+
+      if !debug then
+        print_endline <| Bytecode.string_of_bytecode bytecode;
+
+      try
+        Secd.run bytecode
+        |> Secd.constant_of_value
+        |> print_constant
+      with _ ->
+        print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
+    with _ ->
+      print_endline <| red "[ERROR]" ^ " Syntax error.";
+  end
+
+  (* Start an interpretation REPL. *)
   else begin
     let env = ref Interpreter.base in
+
     while true do
       print_string ">>> ";
       flush stdout;
@@ -63,36 +90,19 @@ let () =
         if !debug then
           print_ast prog;
 
-        (* Compile the input, and run the bytecode on the SECD machine. *)
-        if !machine then begin
-          let bytecode = Compiler.compile prog in
-
-          if !debug then
-            print_endline <| Bytecode.string_of_bytecode bytecode;
-
-          try
-            Secd.run bytecode
-            |> Secd.constant_of_value
-            |> print_constant
-          with _ ->
-            print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
-        end
-
         (* Execute the input. *)
-        else begin
-          try
-            let error x =
-              print_endline <| red "[ERROR]" ^ " Uncaught exception.";
-              print_constant x
-            in
-            let success e x =
-              env := e;
-              print_constant x
-            in
-            Interpreter.eval !env success error prog
-          with Interpreter.InterpretationError ->
-            print_endline <| red "[ERROR]" ^ " The interpreter ended prematurely.";
-        end
+        try
+          let error x =
+            print_endline <| red "[ERROR]" ^ " Uncaught exception.";
+            print_constant x
+          in
+          let success e x =
+            env := e;
+            print_constant x
+          in
+          Interpreter.eval !env success error prog
+        with Interpreter.InterpretationError ->
+          print_endline <| red "[ERROR]" ^ " The interpreter ended prematurely.";
       with _ ->
         print_endline <| red "[ERROR]" ^ " Syntax error.";
     done

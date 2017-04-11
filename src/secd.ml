@@ -150,8 +150,7 @@ let run code =
         aux (c', e', v :: s)
         
     | [], e, v :: s -> v
-    | _, _, s ->
-        raise ExecutionError in
+    | _ -> UnitVal
 
   try
     aux (code, base, [])
