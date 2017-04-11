@@ -56,7 +56,7 @@ let () =
 
   (* Start a REPL loop. *)
   else begin
-    let env = ref base in
+    let env = ref Interpreter.base in
     while true do
       print_string ">>> ";
       flush stdout;

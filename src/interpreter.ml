@@ -3,7 +3,32 @@ open Print
 open Structures
 
 exception InterpretationError
+exception TypeError
 
+(* the default environment
+ * contains our builtin functions *)
+let base = Env.empty
+  |> Env.add "ref"   (CMetaClosure (fun x -> CRef (ref x)))
+  |> Env.add "not"   (CMetaClosure (fun x ->
+       match x with
+       | CBool b -> CBool (not b)
+       | _ -> raise TypeError
+     ))
+  |> Env.add "prInt" (CMetaClosure (fun x ->
+       match x with
+       | CInt i -> print_endline <| string_of_int i; x
+       | _ -> raise TypeError
+     ))
+  |> Env.add "prOut" (CMetaClosure (fun x -> 
+       Beautify.print_constant x;
+       CUnit
+     ))
+  |> Env.add "aMake" (CMetaClosure (fun n ->
+       match n with
+       | CInt n when n >= 0 -> CArray (Array.make n 0)
+       | _ -> raise TypeError
+     ))
+    
 let eval (env : constant Env.t) gk kE e : unit =
   let k = gk env in
   let rec step env k kE = function
@@ -141,6 +166,11 @@ let eval (env : constant Env.t) gk kE e : unit =
                   |> Env.add name fc
                   |> Env.add id v
                 in step env' k kE e
+              in step env k' kE x
+
+          | CMetaClosure f ->
+              let k' v = 
+                k <| f v
               in step env k' kE x
 
           | _ -> raise InterpretationError
