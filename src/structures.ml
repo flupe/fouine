@@ -33,8 +33,6 @@ type constant
   | CArray of int array
   | CUnit
 
-
-
 let rec equal_types a b =
   match a, b with
   | CInt _, CInt _

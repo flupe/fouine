@@ -19,13 +19,12 @@ type value
   | MetaClosureVal of (value -> value)
 
 let rec constant_of_value = function
-  | UnitVal    -> CUnit
-  | IntVal i   -> CInt i
-  | BoolVal b  -> CBool b
-  | RefVal r   -> CRef (ref (constant_of_value !r))
-  | ArrayVal a -> CArray a
-  | MetaClosureVal f ->
-      fun _ -> CUnit
+  | UnitVal          -> CUnit
+  | IntVal i         -> CInt i
+  | BoolVal b        -> CBool b
+  | RefVal r         -> CRef (ref (constant_of_value !r))
+  | ArrayVal a       -> CArray a
+  | MetaClosureVal f -> CMetaClosure (fun _ -> CUnit)
   | _ -> raise TypeError
 
 let compute_unary op v = match op, v with
