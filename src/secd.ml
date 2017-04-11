@@ -11,7 +11,7 @@ type value
   | IntVal of int
   | BoolVal of bool
   | RefVal of value ref
-  | ArrayVal of value array
+  | ArrayVal of int array
   | EnvVal of value IncrEnv.t
   | EncapVal of bytecode
   | ClosureVal of identifier * bytecode * value IncrEnv.t
@@ -23,12 +23,9 @@ let rec constant_of_value = function
   | IntVal i   -> CInt i
   | BoolVal b  -> CBool b
   | RefVal r   -> CRef (ref (constant_of_value !r))
-  
-  | ArrayVal a -> CArray (a |> Array.map 
-    (fun x -> match x with
-      | IntVal i -> i
-      | _ -> raise TypeError))
-
+  | ArrayVal a -> CArray a
+  | MetaClosureVal f ->
+      fun _ -> CUnit
   | _ -> raise TypeError
 
 let compute_unary op v = match op, v with
@@ -54,30 +51,36 @@ let compute_binary op v v' = match op, v, v' with
   | SetRef, RefVal r,  _         -> r := v'; UnitVal
   | _ -> raise TypeError
 
-
 (** A base environment which contains meta-closures to support "special"
     operations like `ref`, `not`, `prInt` or `aMake`. *)
 let base =
   IncrEnv.empty
 
-  |> IncrEnv.add "ref" (MetaClosureVal (fun x ->
-      RefVal (ref x)))
+  |> IncrEnv.add "ref" 
+      (MetaClosureVal (fun x -> RefVal (ref x)))
 
-  |> IncrEnv.add "not" (MetaClosureVal (fun x -> match x with
+  |> IncrEnv.add "not" 
+      (MetaClosureVal (fun x -> match x with
       | BoolVal b -> BoolVal (not b)
       | _ -> raise TypeError))
 
-  |> IncrEnv.add "prInt" (MetaClosureVal (fun x -> match x with
+  |> IncrEnv.add "prInt" 
+      (MetaClosureVal (fun x -> match x with
       | IntVal i ->
           print_int i;
           print_newline ();
-          UnitVal
+          IntVal i
       | _ -> raise TypeError))
 
-  |> IncrEnv.add "aMake" (MetaClosureVal (fun x -> match x with
-      | IntVal i -> ArrayVal (Array.make i (IntVal 0))
-      | _ -> raise TypeError))
+  |> IncrEnv.add "prOut" 
+      (MetaClosureVal (fun x ->
+      constant_of_value x |> Beautify.print_constant;
+      UnitVal))
 
+  |> IncrEnv.add "aMake" 
+      (MetaClosureVal (fun x -> match x with
+      | IntVal i when i >= 0 -> ArrayVal (Array.make i 0)
+      | _ -> raise TypeError))
 
 (** run : Bytecode.bytecode -> unit
   
@@ -97,12 +100,12 @@ let run code =
     | Deref :: c, e, RefVal r :: s ->
         aux (c, e, !r :: s)
 
-    | ArraySet :: c, e, v :: IntVal key :: ArrayVal a :: s ->
+    | ArraySet :: c, e, IntVal v :: IntVal key :: ArrayVal a :: s ->
         a.(key) <- v;
         aux (c, e, UnitVal :: s)
 
     | ArrayRead :: c, e, IntVal key :: ArrayVal a :: s ->
-        aux (c, e, a.(key) :: s)
+        aux (c, e, IntVal a.(key) :: s)
 
     | UnOp op :: c, e, v :: s ->
         aux (c, e, (compute_unary op v) :: s)
