@@ -9,10 +9,10 @@ and instruction
   | IntConst of int
   | BoolConst of bool
   | RefConst
-  | ArrayConst
   | Deref
-  | ArraySet of identifier
-  | ArrayRead of identifier
+  | ArrayConst
+  | ArraySet
+  | ArrayRead
   | UnOp of unary_op
   | BinOp of binary_op
   | Access of identifier
@@ -36,11 +36,10 @@ let rec string_of_instruction = function
       else
         red "BoolConst" ^ " (" ^ green "false" ^ ")"
   | RefConst -> red "RefConst"
-  | ArrayConst -> red "ArrayConst"
   | Deref -> red "Deref"
-
-  | ArraySet id -> red "ArraySet" ^ " (" ^ cyan id ^ ")"
-  | ArrayRead id -> red "ArrayRead" ^ " (" ^ cyan id ^ ")"
+  | ArrayConst -> red "ArrayConst"
+  | ArraySet -> red "ArraySet"
+  | ArrayRead -> red "ArrayRead"
 
   | UnOp op ->
       red "UnOp" ^ " (" ^ magenta (string_of_unary_op op) ^ ")"

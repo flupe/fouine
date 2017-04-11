@@ -69,7 +69,7 @@ and print_aux env i o e =
   | Raise e -> p i o (red "raise "); esc true o e
   | Deref e -> p i o ("!"); esc true (o ^ indent) e
   | Print e -> p i o (blue "prInt "); esc true (o ^ indent) e
-  | AMake e -> p i o (blue "aMake "); esc true (o ^ indent) e
+  | ArrayMake e -> p i o (blue "aMake "); esc true (o ^ indent) e
   | Seq (l, r) -> esc i o l; print_endline ";"; esc false o r
   | UnaryOp (op, r) -> p i o (string_of_unary_op op ^ " "); esc true o r
 

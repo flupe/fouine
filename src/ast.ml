@@ -33,7 +33,7 @@ type t
   | Seq of t * t
   | Deref of t
   | Print of t
-  | AMake of t
+  | ArrayMake of t
   | ArraySet of t * t * t
   | ArrayRead of t * t
 

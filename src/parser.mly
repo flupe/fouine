@@ -80,7 +80,7 @@ expr:
   | RAISE enclosed { Raise $2 }
 
   | PRINT enclosed { Print $2 }
-  | AMAKE enclosed { AMake $2 }
+  | AMAKE enclosed { ArrayMake $2 }
 
   | array_access LARROW expr {
       let arr, key = $1 in

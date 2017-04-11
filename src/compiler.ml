@@ -22,18 +22,20 @@ let compile e =
         aux a @
         [Deref]
 
-    | AMake a ->
+    | ArrayMake a ->
         aux a @
         [ArrayConst]
 
-    | ArraySet (id, k, v) ->
+    | ArraySet (a, k, v) ->
+        aux a @
         aux k @
         aux v @
-        [ArraySet id]
+        [ArraySet]
         
-    | ArrayRead (id, k) ->
+    | ArrayRead (a, k) ->
+        aux a @
         aux k @
-        [ArrayRead id]
+        [ArrayRead]
 
     | BinaryOp (op, a, b) ->
         aux a @

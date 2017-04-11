@@ -170,7 +170,7 @@ let eval (env : constant Env.t) (k : 'a callback) (kE : 'a callback) e : unit =
           | _ -> raise InterpretationError
         in step env k' kE e
 
-    | AMake e ->
+    | ArrayMake e ->
         let k' _ v = 
           match v with
           | CInt i when i >= 0 ->

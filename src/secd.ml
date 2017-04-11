@@ -17,27 +17,30 @@ type value
   | ClosureVal of identifier * bytecode * value IncrEnv.t
   | RecClosureVal of identifier * identifier * bytecode * value IncrEnv.t
 
-let rec print_value = function
-  | UnitVal -> print_endline "()"
-  | IntVal i -> print_endline @@ string_of_int i
-  | BoolVal b -> print_endline (if b then "true" else "false")
-  | _ -> print_endline @@ red "-"
+let rec constant_of_value = function
+  | UnitVal    -> CUnit
+  | IntVal i   -> CInt i
+  | BoolVal b  -> CBool b
+  | RefVal r   -> CRef (ref (constant_of_value !r))
+  
+  | ArrayVal a -> CArray (a |> Array.map 
+    (fun x -> match x with
+      | IntVal i -> i
+      | _ -> raise TypeError))
 
-let print_env e =
-  Env.bindings e
-  |> List.iter (fun (k, v) ->
-      print_string k;
-      print_string " ";
-      List.iter print_value v)
+  | _ -> raise TypeError
 
 let compute_unary op v = match op, v with
   | Not, BoolVal b -> BoolVal (not b)
+  | UMinus, IntVal i -> IntVal ((-1) * i)
   | _ -> raise TypeError
 
 let compute_binary op v v' = match op, v, v' with
   | Plus,   IntVal i,  IntVal j  -> IntVal (i + j)
   | Minus,  IntVal i,  IntVal j  -> IntVal (i - j)
   | Mult,   IntVal i,  IntVal j  -> IntVal (i * j)
+  | Div,    IntVal i,  IntVal j  -> IntVal (i / j)
+  | Mod,    IntVal i,  IntVal j  -> IntVal (i mod j)
   | Or,     BoolVal i, BoolVal j -> BoolVal (i || j)
   | And,    BoolVal i, BoolVal j -> BoolVal (i && j)
   | Lt,     IntVal i,  IntVal j  -> BoolVal (i < j)
@@ -50,6 +53,7 @@ let compute_binary op v v' = match op, v, v' with
   | Neq,    BoolVal i, BoolVal j -> BoolVal (i <> j)
   | SetRef, RefVal r,  _         -> r := v'; UnitVal
   | _ -> raise TypeError
+
 
 (** run : Bytecode.bytecode -> unit
   
@@ -75,19 +79,12 @@ let run code =
     | ArrayConst :: c, e, IntVal i :: s ->
         aux (c, e, ArrayVal (Array.make i (IntVal 0)) :: s)
 
-    | ArraySet x :: c, e, v :: IntVal key :: s ->
-        begin match IncrEnv.find x e with
-          | ArrayVal a ->
-              a.(key) <- v;
-              aux (c, e, UnitVal :: s)
-          | _ -> raise ExecutionError
-        end
+    | ArraySet :: c, e, v :: IntVal key :: ArrayVal a :: s ->
+        a.(key) <- v;
+        aux (c, e, UnitVal :: s)
 
-    | ArrayRead x :: c, e, IntVal key :: s ->
-        begin match IncrEnv.find x e with        
-          | ArrayVal a -> aux (c, e, a.(key) :: s)
-          | _ -> raise ExecutionError
-        end
+    | ArrayRead :: c, e, IntVal key :: ArrayVal a :: s ->
+        aux (c, e, a.(key) :: s)
 
     | UnOp op :: c, e, v :: s ->
         aux (c, e, (compute_unary op v) :: s)
@@ -136,7 +133,6 @@ let run code =
         
     | [], e, v :: s -> v
     | _, _, s ->
-        print_value (List.hd s); 
         raise ExecutionError in
 
   try
