@@ -15,7 +15,7 @@
 
 %start main
 
-%type <Ast.t> main
+%type <Ast.t list> main
 %type <Ast.t> expr
 %type <string list> list_of_idents
 
@@ -50,15 +50,21 @@ array_access:
   | enclosed DOT LPAREN expr RPAREN { $1, $4 }
 
 global:
-  | LET IDENT list_of_idents EQ expr {
-      Let ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3)
+  | global_lets { $1 }
+
+  | expr { [$1] }
+
+global_lets:
+  | { [] }
+
+  | LET IDENT list_of_idents EQ expr global_lets {
+      Let ($2, List.fold_left (fun e x -> Fun (x, e)) $5 $3) :: $6
     }
 
-  | LET REC IDENT list_of_idents EQ expr {
-      LetRec ($3, List.fold_left (fun e x -> Fun (x, e)) $6 $4)
+  | LET REC IDENT list_of_idents EQ expr global_lets {
+      LetRec ($3, List.fold_left (fun e x -> Fun (x, e)) $6 $4) :: $7
     }
 
-  | expr { $1 }
 
 expr:
   | LET IDENT list_of_idents EQ expr IN expr {

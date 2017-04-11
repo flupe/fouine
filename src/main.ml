@@ -7,6 +7,12 @@ let parse_input () =
   Lexing.from_channel stdin
   |> Parser.main Lexer.token
 
+let rec run_prog env success error = function
+  | e :: t ->
+      Interpreter.eval !env success error e;
+      run_prog env success error t
+  | _ -> ()
+
 let () =
   let debug = ref false in
   let machine = ref false in
@@ -25,13 +31,13 @@ let () =
   (* Compile the input, and output it to a bytecode file. *)
   if !interm <> "" then begin
     let prog = parse_input () in
-    let bytecode = Compiler.compile prog in
+    let bytecode = List.map Compiler.compile prog in
 
     if !debug then
-      print_endline <| Bytecode.string_of_bytecode bytecode;
+      List.iter (fun x -> print_endline <| Bytecode.string_of_bytecode x) bytecode;
 
     let chan = open_out_bin !interm in
-    Marshal.to_channel chan bytecode [];
+    List.iter (fun bytes -> Marshal.to_channel chan bytes []) bytecode;
     close_out chan
   end
 
@@ -50,50 +56,60 @@ let () =
     close_in chan
   end
 
-  (* Start a REPL. *)
   else begin
-    let env = ref Interpreter.base in
-    while true do
-      print_string ">>> ";
-      flush stdout;
 
+    (* Compile the input, and run the bytecode on the SECD machine. *)
+    if !machine then begin
       try
+        print_string ">>> ";
+        flush stdout;
         let prog = parse_input () in
+        let bytecode = List.map Compiler.compile prog in
 
         if !debug then
-          print_ast prog;
+          List.iter (fun x -> print_endline <| Bytecode.string_of_bytecode x) bytecode;
 
-        (* Compile the input, and run the bytecode on the SECD machine. *)
-        if !machine then begin
-          let bytecode = Compiler.compile prog in
-
-          if !debug then
-            print_endline <| Bytecode.string_of_bytecode bytecode;
-
-          try
-            Secd.run bytecode
+        try
+          List.iter (fun bytes ->
+            Secd.run bytes
             |> Secd.constant_of_value
             |> print_constant
-          with _ ->
-            print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
-        end
-
-        (* Execute the input. *)
-        else begin
-          try
-            let error x =
-              print_endline <| red "[ERROR]" ^ " Uncaught exception.";
-              print_constant x
-            in
-            let success e x =
-              env := e;
-              print_constant x
-            in
-            Interpreter.eval !env success error prog
-          with Interpreter.InterpretationError ->
-            print_endline <| red "[ERROR]" ^ " The interpreter ended prematurely.";
-        end
+          ) bytecode
+        with _ ->
+          print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
       with _ ->
         print_endline <| red "[ERROR]" ^ " Syntax error.";
-    done
+    end
+
+    (* Start a REPL. *)
+    else begin
+      let env = ref Interpreter.base in
+
+      while true do
+        print_string ">>> ";
+        flush stdout;
+
+        try
+          let prog = parse_input () in
+
+          if !debug then
+            List.iter print_ast prog;
+
+          let error x =
+            print_endline <| red "[ERROR]" ^ " Uncaught exception.";
+            print_constant x in
+
+          let success e x =
+            env := e;
+            print_constant x in
+
+          try
+            run_prog env success error prog
+          with Interpreter.InterpretationError ->
+            print_endline <| red "[ERROR]" ^ " The interpreter ended prematurely.";
+
+        with _ ->
+          print_endline <| red "[ERROR]" ^ " Syntax error.";
+      done
+    end
   end
