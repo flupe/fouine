@@ -1,6 +1,6 @@
 open Ast
 open Print
-open Structures
+open Shared
 
 exception InterpretationError
 exception TypeError

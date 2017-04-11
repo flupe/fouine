@@ -1,7 +1,7 @@
 open Ast
 open Print
+open Shared
 open Bytecode
-open Structures
 
 exception TypeError
 exception ExecutionError

@@ -1,6 +1,6 @@
 open Ast
 open Print
-open Structures
+open Shared
 open Beautify
 
 let parse_input () =
