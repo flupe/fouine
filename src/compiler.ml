@@ -14,6 +14,27 @@ let compile e =
     | Bool b -> [BoolConst b]
     | Var x  -> [Access x]
 
+    | Ref a ->
+        aux a @
+        [RefConst]
+
+    | Deref a ->
+        aux a @
+        [Deref]
+
+    | AMake a ->
+        aux a @
+        [ArrayConst]
+
+    | ArraySet (id, k, v) ->
+        aux k @
+        aux v @
+        [ArraySet id]
+        
+    | ArrayRead (id, k) ->
+        aux k @
+        [ArrayRead id]
+
     | BinaryOp (op, a, b) ->
         aux a @
         aux b @
@@ -38,23 +59,25 @@ let compile e =
         [Encap (aux b)] @
         [Branch]
 
+    | LetRecIn (id, Fun (id', a'), b) ->
+        [RecClosure (id, id', (aux a') @ [Return])] @
+        [Let id] @
+        aux b @
+        [EndLet id]
+
+    | LetRecIn (id, a, b)
     | LetIn (id, a, b) ->
         aux a @
         [Let id] @
         aux b @
         [EndLet id]
 
-    | LetRecIn (id, a, b) -> (* TODO *)
-        aux a @
-        [Let id] @
-        aux b @
-        [EndLet id]
-
-    | Let (id, a) ->
-        aux a @
+    | LetRec (id, Fun (id', a')) ->
+        [RecClosure (id, id', (aux a') @ [Return])] @
         [Let id]
 
-    | LetRec (id, a) -> (* TODO *)
+    | LetRec (id, a)
+    | Let (id, a) ->
         aux a @
         [Let id]
 
