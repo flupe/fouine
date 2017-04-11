@@ -33,8 +33,7 @@ type constant
   | CArray of int array
   | CUnit
 
-let base = 
-  Env.empty
+
 
 let rec equal_types a b =
   match a, b with

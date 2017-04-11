@@ -16,6 +16,7 @@ let rec string_of_type = function
   | CRef r -> string_of_type !r ^ red " ref"
   | CClosure _ -> blue "fun"
   | CRec _ -> blue "rec fun"
+  | CMetaClosure _ -> red "builtin"
   | CArray _ -> cyan "int array"
   | CUnit -> magenta "unit"
 
@@ -40,6 +41,7 @@ let rec print_constant_aux env i o e =
         | _ -> acc
       in let values = aux "" (Array.to_list a)
       in p <| "[| " ^ values ^ " |]"
+  | CMetaClosure _ -> print_string "-"
 
   | CUnit -> p "()"
 
