@@ -8,6 +8,7 @@ type color
 
 type attribute
   = Clear
+  | Bold
   | Color of color
 
 let color_code = function
@@ -20,6 +21,7 @@ let color_code = function
 
 let code = function
   | Clear -> "0"
+  | Bold -> "1"
   | Color c -> color_code c
 
 let string_of_attr attr =
@@ -29,6 +31,7 @@ let style attributes text =
   String.concat "" (List.map string_of_attr attributes) ^ text ^ string_of_attr Clear
 
 (* shortcuts *)
+let bold = style [Bold]
 let red = style [Color Red]
 let green = style [Color Green]
 let yellow = style [Color Yellow]
