@@ -41,11 +41,11 @@ As usual, the source files for our modules are located inside the `src` folder, 
 
 ## General design choices.
 
-- We provide atomic types `unit, `int`, `bool`, `array`, `'a ref`, `fun` are supported.
+- We provide atomic types `unit`, `int`, `bool`, `array`, `'a ref`, `fun` are supported.
 - We support exceptions *(only on the interpreter for now)*.
-- We only support arrays of integers *(because the assignment asked us to do so -- we could actually provide arrays of anything, even heteregenous arrays)*.
+- We only support arrays of integers *(because the assignment asked us to do so -- we could actually provide arrays of anything, even heterogeneous arrays)*.
 - We support references to any of the previous atomic types, including functions.
-- We have decided that the `:=` operator returns `unit` to stay consistent with OCaml.
+- We have decided that the `:=` operator should return `unit` to stay consistent with OCaml.
 
 ### About builtin functions.
 
@@ -53,7 +53,7 @@ In order to provide a systematic -- and somewhat more elegant -- way of dealing 
 
 Then, instead of starting to execute the code on an empty environment, we pre-load all those functions in the environment with the special type `MetaClosure`. This way, we can do something like:
 
-```
+```ocaml
 let f = prInt in f 2;;
 ```
 ## Parsing.
@@ -96,7 +96,7 @@ let f = prInt in f 2;;
 
 When running `./fouine` without additionnal parameters, we provide a REPL *(read-eval-print-loop)*, meaning that you can do the following:
 
-```
+```ocaml
 >>> let a = 3;;
 - : int = 3
 >>> let b = 4;;
@@ -106,18 +106,18 @@ When running `./fouine` without additionnal parameters, we provide a REPL *(read
 ```
 
 Our pretty-printing routine is designed to be as explicit as possible. For instance:
-```
+```ocaml
 >>> aMake 5;;
 - : int array = [| 0; 0; 0; 0; 0 |]
 ```
 
-```
+```ocaml
 >>> prInt;;
 - : builtin = -
 ```
 
 More interestingly, when dealing with partially evaluated functions, we substitute the already bound variables with their values:
-```
+```ocaml
 >>> let f x y = x * y;;
 - : fun = fun x -> fun y ->
     x * y
@@ -135,10 +135,40 @@ We support the following:
 - Function calls, currying.
 - Full reference support.
 - Integer array support.
-- Valid print operation.
+- Builtin functions on a metalanguage level (`prInt`, `prOut`, `aMake`).
+- Successive `let` definitions without the `in` keyword.
 - Recursion.
 - Exceptions handling (with continuation).
 
 ## Compilation.
 
 We support all of the above, except exceptions.
+
+We use an extension of the SECD bytecode suggested in class, which has additionnal instructions to support conditonnal statements, recursive functions, arrays or references.
+
+```ocaml
+type bytecode =
+  instruction list
+
+and instruction
+  = UnitConst
+  | IntConst of int
+  | BoolConst of bool
+  | RefConst
+  | Deref
+  | ArrayConst
+  | ArraySet
+  | ArrayRead
+  | UnOp of unary_op
+  | BinOp of binary_op
+  | Access of identifier
+  | Encap of bytecode
+  | Closure of identifier * bytecode
+  | RecClosure of identifier * identifier * bytecode
+  | Let of identifier
+  | EndLet of identifier
+  | Apply
+  | Branch
+  | Print
+  | Return
+```
