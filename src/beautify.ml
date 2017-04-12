@@ -59,7 +59,7 @@ and print_aux env i o e =
   let print_aux = print_aux env in
   let esc = esc env in
   match e with
-  | Int k -> p i o (green @@ string_of_int k)
+  | Int k -> p i o (green <| string_of_int k)
   | Unit -> p i o (magenta "()")
   | Bool b -> p i o (yellow (if b then "true" else "false"))
   | Var id ->

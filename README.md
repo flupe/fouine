@@ -84,6 +84,23 @@ let f = prInt in f 2;;
 - Exception handling syntax: `try ... with E x -> ...`.
   We also allow some form of pattern matching, with `try ... with E 3 -> ...` for instance.
 
+  ```ocaml
+  >>> try
+        raise E 2
+      with E x ->
+        ()
+  - : unit = ()
+  ```
+
+  ```ocaml
+  >>> try
+        raise E 2
+      with E 3 ->
+        ()
+  [ERROR] Uncaught exception.
+  - : int = 2
+  ```
+
 - Special `prInt` command to print integers, as well as `prOut` to print any type to standard out.
 - Support for references: `ref 2`, `!x`, `x := 3`.
 - Sequencing with `;`.
