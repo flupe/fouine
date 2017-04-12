@@ -136,9 +136,9 @@ We support the following:
 - Full reference support.
 - Integer array support.
 - Builtin functions on a metalanguage level (`prInt`, `prOut`, `aMake`).
-- Successive `let` definitions without the `in` keyword.
+- Successive `let` definitions without the `in` keyword with a persistent global environment.
 - Recursion.
-- Exceptions handling (with continuation).
+- Exceptions handling (using continuations).
 
 ## Compilation.
 
