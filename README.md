@@ -4,6 +4,10 @@
 
 This project is an implementation of **fouine**, a toy programming language based on OCaml. It provides both an interpreter and a compiler, as well as the SECD machine to execute the compiled bytecode.
 
+*A note on work sharing:*
+- Lucas implemented the parser and interpreter, plus a few utilities *(e.g. pretty-printing)*.
+- Romain implemented the compiler and the SECD machine.
+
 ## Usage.
 
 - Compile with `make`.
