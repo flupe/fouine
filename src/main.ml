@@ -100,7 +100,9 @@ let () =
     let env = ref Interpreter.base in
 
     while true do
-      print_string <| bold "∴ ";
+      (* ilé bien gentil romain mais 
+       * j'ai pas ce caractère dans ma police *)
+      print_string <| bold ">>> ";
       flush stdout;
 
       try

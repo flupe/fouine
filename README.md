@@ -86,25 +86,6 @@ let f = prInt in f 2;;
   Note that, as in OCaml, a `else` branch is optional in which case a `unit` value is implied.
 
 - Exception handling syntax: `try ... with E x -> ...`.
-  We also allow some form of pattern matching, with `try ... with E 3 -> ...` for instance.
-
-  ```ocaml
-  >>> try
-        raise E 2
-      with E x ->
-        ()
-  - : unit = ()
-  ```
-
-  ```ocaml
-  >>> try
-        raise E 2
-      with E 3 ->
-        ()
-  [ERROR] Uncaught exception.
-  - : int = 2
-  ```
-
 - Special `prInt` command to print integers, as well as `prOut` to print any type to standard out.
 - Support for references: `ref 2`, `!x`, `x := 3`.
 - Sequencing with `;`.
@@ -112,6 +93,31 @@ let f = prInt in f 2;;
 - Chained function calls, even with anonymous functions.
 - Scopes delimited by parens or `begin`, `end`.
 - Support of several successive `let` statements without `;;` between them.
+- **new!** : Full pattern matching in `let` bindings, function declarations and exceptions.
+
+  ```ocaml
+  >>> let (x, (y, z), _, 3) = (1, (2, 3), true, 3);;
+  - : tuple = tuple
+  >>> x;;
+  - : int = 1
+  >>> y;;
+  - : int = 2;;
+  ```
+
+  ```ocaml
+  >>> let f (x, y) = x * y;;
+  >>> f (1, 2);;
+  - : int = 2
+  ```
+
+  ```ocaml
+  >>> try
+        raise (1, 2)
+      with E (x, y) ->
+        x + y
+      ;;
+  - : int = 3
+  ```
 
 ## REPL.
 
