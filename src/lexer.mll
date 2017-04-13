@@ -28,11 +28,11 @@ rule token = parse
   | "<-" { LARROW }
   | "&&" { AND }
   | "||" { OR }
+  | '_' { UNDERSCORE }
 
   | "<>" { NEQ }
   | "<=" { LEQ }
   | ">=" { GEQ }
-  | "()" { UNIT }
 
   | '(' { LPAREN }
   | ')' { RPAREN }
@@ -48,6 +48,7 @@ rule token = parse
 
   | ';' { SEMI }
   | '.' { DOT }
+  | ',' { COMMA }
   | ";;" { DELIM }
 
   | digit+ as s { INT(int_of_string s) }

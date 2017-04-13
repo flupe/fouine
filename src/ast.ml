@@ -10,24 +10,34 @@ type binary_op
   | Geq  | Eq    | Neq  | SetRef 
   | Div  | Mod
 
-type t
-  = Unit
-  | Var  of identifier
+type constant =
   | Int  of int
   | Bool of bool
+  | Unit 
+
+type pattern =
+  | PAll (* underscore, matches everything *)
+  | PConst of constant
+  | PField of identifier
+  | PPair  of pattern list 
+
+type t
+  = Var  of identifier
+  | Const of constant
+  | Tuple of t list
 
   | BinaryOp of binary_op * t * t
   | UnaryOp  of unary_op  * t
 
-  | Let of identifier * t
+  | Let of pattern * t
   | LetRec of identifier * t
-  | LetIn of identifier * t * t
+  | LetIn of pattern * t * t
   | LetRecIn of identifier * t * t
 
   | IfThenElse of t * t * t
-  | Fun of identifier * t
+  | Fun of pattern * t
   | Call of t * t
-  | TryWith of t * t * t
+  | TryWith of t * pattern * t
   | Raise of t
   | Seq of t * t
   | Deref of t

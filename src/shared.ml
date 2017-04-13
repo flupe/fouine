@@ -1,7 +1,9 @@
 let (<|) = (@@)
 
+open Ast
+
 module Env = Map.Make (struct
-  type t = Ast.identifier
+  type t = identifier
   let compare = Pervasives.compare
 end)
 
@@ -24,22 +26,25 @@ module IncrEnv = struct
 end
 
 type constant
-  = CInt of int
-  | CBool of bool
+  = CConst of Ast.constant
   | CRef of constant ref
   | CMetaClosure of (constant -> constant)
-  | CClosure of Ast.identifier * Ast.t * constant Env.t
-  | CRec of Ast.identifier * Ast.identifier * Ast.t * constant Env.t
+  | CClosure of Ast.pattern * Ast.t * constant Env.t
+  | CRec of Ast.identifier * Ast.pattern  * Ast.t * constant Env.t
   | CArray of int array
-  | CUnit
+  | CTuple of constant list
 
 let rec equal_types a b =
   match a, b with
-  | CInt _, CInt _
-  | CBool _, CBool _
   | CClosure _, CClosure _
   | CRec _, CRec _
-  | CArray _, CArray _
-  | CUnit, CUnit -> true
+  | CArray _, CArray _ -> true
   | CRef ra, CRef rb -> equal_types !ra !rb
+  | CTuple al, CTuple bl -> List.for_all2 equal_types al bl
+  | CConst a, CConst b -> begin match a, b with
+    | Int _, Int _
+    | Bool _, Bool _
+    | Unit, Unit -> true
+    | _ -> false
+    end
   | _ -> false

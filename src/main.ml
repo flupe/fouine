@@ -28,6 +28,20 @@ let () =
 
   in Arg.parse speclist ignore "Fouine REPL 2017";
 
+  (*
+  let prog = parse_input () in
+  let env = Interpreter.base in
+  let error x =
+    print_endline (red "[ERROR]" ^ " Uncaught exception.");
+    print_value x in
+  let success e x =
+    print_value x in
+  try
+    Interpreter.eval env success error (List.hd prog)
+  with Interpreter.InterpretationError ->
+    print_endline (red "[ERROR]" ^ " The interpreter ended prematurely.")
+
+
   (* Compile the input, and output it to a bytecode file. *)
   if !interm <> "" then begin
     let prog = parse_input () in
@@ -78,7 +92,7 @@ let () =
   end
 
   (* Start an interpretation REPL. *)
-  else begin
+  else begin *)
     let env = ref Interpreter.base in
 
     while true do
@@ -93,11 +107,11 @@ let () =
 
         let error x =
           print_endline <| red "[ERROR]" ^ " Uncaught exception.";
-          print_constant x in
+          print_value x in
 
         let success e x =
           env := e;
-          print_constant x in
+          print_value x in
 
         try
           run_prog env success error prog
@@ -107,4 +121,6 @@ let () =
       with _ ->
         print_endline <| red "[ERROR]" ^ " Syntax error.";
     done
+    (*
   end
+  *)

@@ -11,58 +11,73 @@ let base = Env.empty
   |> Env.add "ref"   (CMetaClosure (fun x -> CRef (ref x)))
   |> Env.add "not"   (CMetaClosure (fun x ->
        match x with
-       | CBool b -> CBool (not b)
+       | CConst (Bool b) -> CConst (Bool (not b))
        | _ -> raise TypeError
      ))
   |> Env.add "prInt" (CMetaClosure (fun x ->
        match x with
-       | CInt i -> print_endline <| string_of_int i; x
+       | CConst (Int i) -> print_endline <| string_of_int i; x
        | _ -> raise TypeError
      ))
   |> Env.add "prOut" (CMetaClosure (fun x -> 
-       Beautify.print_constant x;
-       CUnit
+       Beautify.print_value x;
+       CConst Unit
      ))
   |> Env.add "aMake" (CMetaClosure (fun n ->
        match n with
-       | CInt n when n >= 0 -> CArray (Array.make n 0)
+       | CConst (Int n) when n >= 0 -> CArray (Array.make n 0)
        | _ -> raise TypeError
      ))
-    
+
+let rec match_uple env (a : pattern list) (b : constant list) =
+  match a, b with
+  | [], [] -> true, env
+  | p :: pl, c :: cl ->
+      let matched, env' = match_pattern env p c in
+      if matched then match_uple env' pl cl
+      else false, env
+  | _ -> raise InterpretationError
+
+and match_pattern env (a : pattern) (b : constant) =
+  match a, b with
+  | PAll, _ -> true, env
+  | PField id, _ -> true, Env.add id b env
+  | PConst p, CConst c -> p = c, env
+  | PPair pl, CTuple cl -> match_uple env pl cl
+  | _ -> raise InterpretationError
+
 let eval (env : constant Env.t) gk kE e : unit =
   let k = gk env in
   let rec step env k kE = function
-    | Int c -> k <| CInt c
-    | Bool b -> k <| CBool b
-    | Unit -> k <| CUnit
+    | Const c -> k <| CConst c
 
     | BinaryOp (op, l, r) ->
         let k' lc = 
         let k' rc =
           k <|
           match lc, rc with
-          | CInt lv, CInt rv -> begin
+          | CConst (Int lv), CConst (Int rv) -> begin
               match op with
-              | Plus -> CInt (lv + rv)
-              | Minus -> CInt (lv - rv)
-              | Mult -> CInt (lv * rv)
-              | Div -> CInt (lv / rv)
-              | Mod -> CInt (lv mod rv)
-              | Lt -> CBool (lv < rv)
-              | Gt -> CBool (lv > rv)
-              | Leq -> CBool (lv <= rv)
-              | Geq -> CBool (lv >= rv)
-              | Eq -> CBool (lv = rv)
-              | Neq -> CBool (lv <> rv)
+              | Plus -> CConst (Int (lv + rv))
+              | Minus -> CConst (Int (lv - rv))
+              | Mult -> CConst (Int (lv * rv))
+              | Div -> CConst (Int (lv / rv))
+              | Mod -> CConst (Int (lv mod rv))
+              | Lt -> CConst (Bool (lv < rv))
+              | Gt -> CConst (Bool (lv > rv))
+              | Leq -> CConst (Bool (lv <= rv))
+              | Geq -> CConst (Bool (lv >= rv))
+              | Eq -> CConst (Bool (lv = rv))
+              | Neq -> CConst (Bool (lv <> rv))
               | _ -> raise InterpretationError
             end
 
-          | CBool lv, CBool rv -> begin
+          | CConst (Bool lv), CConst (Bool rv) -> begin
               match op with
-              | Or -> CBool (lv || rv)
-              | And -> CBool (lv && rv)
-              | Eq -> CBool (lv = rv)
-              | Neq -> CBool (lv <> rv)
+              | Or -> CConst (Bool (lv || rv))
+              | And -> CConst (Bool (lv && rv))
+              | Eq -> CConst (Bool (lv = rv))
+              | Neq -> CConst (Bool (lv <> rv))
               | _ -> raise InterpretationError
             end
 
@@ -71,7 +86,7 @@ let eval (env : constant Env.t) gk kE e : unit =
                 (* references cannot change type *)
                 if equal_types rc !r then begin
                   r := rc;
-                  CUnit
+                  CConst Unit
                 end else raise InterpretationError
               else raise InterpretationError
 
@@ -83,8 +98,8 @@ let eval (env : constant Env.t) gk kE e : unit =
         let k' c =
           k <|
           match c with
-          | CInt i ->
-              if op = UMinus then CInt (-i)
+          | CConst (Int i) ->
+              if op = UMinus then CConst (Int (-i))
               else raise InterpretationError
           | _ -> raise InterpretationError
         in step env k' kE e
@@ -98,22 +113,25 @@ let eval (env : constant Env.t) gk kE e : unit =
     | IfThenElse (cond, truthy, falsy) ->
         let k' c = 
           match c with
-          | CBool b ->
+          | CConst (Bool b) ->
               if b then step env k kE truthy
               else step env k kE falsy
           | _ -> raise InterpretationError
         in step env k' kE cond
 
-    | LetIn (id, e, fn) ->
+    | LetIn (p, e, fn) ->
         let k' c =
-          let env' = Env.add id c env
-          in step env' k kE fn
+          let matched, env' = match_pattern env p c in
+          if matched then
+            step env' k kE fn
+          else raise InterpretationError
         in step env k' kE e
 
+    (* no pattern matching for the 1rst token of recursive definitions *)
     | LetRecIn (id, e, fn) -> begin
         match e with
-        | Fun (id', e') ->
-            let f = CRec(id, id', e', env) in
+        | Fun (p', e') ->
+            let f = CRec(id, p', e', env) in
             let env' = Env.add id f env in
             step env' k kE fn
 
@@ -125,20 +143,20 @@ let eval (env : constant Env.t) gk kE e : unit =
             in step env k' kE e
       end
 
-    | Let (id, e) ->
+    | Let (pattern, e) ->
         let k' c =
-          let env' = Env.add id c env
-          in gk env' c
+          let matched, env' = match_pattern env pattern c in
+          if matched then
+            gk env' c
+          else raise InterpretationError
         in step env k' kE e
 
     | LetRec (id, e) -> begin
         match e with
-        | Fun (id', e') ->
-            let f = CRec(id, id', e', env) in
+        | Fun (p, e') ->
+            let f = CRec(id, p, e', env) in
             let env' = Env.add id f env in
             gk env' f
-
-        (* ain't recursive, or at least not in the way we allow *)
         | _ ->
             let k' c =
               let env = Env.add id c env
@@ -146,26 +164,26 @@ let eval (env : constant Env.t) gk kE e : unit =
             in step env k' kE e
       end
 
-    | Fun (id, e) ->
-        k <| CClosure (id, e, env)
+    | Fun (pattern, e) ->
+        k <| CClosure (pattern, e, env)
 
     | Call (e, x) ->
         let k' fc =
           match fc with
-          | CClosure (id, fn, env') ->
+          | CClosure (pattern, fn, env') ->
               let k' v = 
-                let env' =
-                  Env.add id v env'
-                in step env' k kE fn
+                let matched, env' = match_pattern env' pattern v in
+                if matched then
+                  step env' k kE fn
+                else raise InterpretationError
               in step env k' kE x
 
-          | CRec (name, id, e, env') ->
+          | CRec (name, pattern, e, env') ->
               let k' v = 
-                let env' =
-                  env'
-                  |> Env.add name fc
-                  |> Env.add id v
-                in step env' k kE e
+                let matched, env' = match_pattern (Env.add name fc env') pattern v in
+                if matched then
+                  step env' k kE e
+                else raise InterpretationError
               in step env k' kE x
 
           | CMetaClosure f ->
@@ -189,15 +207,15 @@ let eval (env : constant Env.t) gk kE e : unit =
           | CArray a ->
               let k' p =
                 match p with
-                | CInt p when p >= 0 ->
+                | CConst (Int p) when p >= 0 ->
                   if p >= Array.length a then
                     raise InterpretationError
                   else
                   let k' v =
                     match v with
-                    | CInt v ->
+                    | CConst (Int v) ->
                         a.(p) <- v;
-                        k CUnit
+                        k (CConst Unit)
                     | _ -> raise InterpretationError
                   in step env k' kE v
                 | _ -> raise InterpretationError
@@ -211,11 +229,11 @@ let eval (env : constant Env.t) gk kE e : unit =
           | CArray a ->
               let k' p =
                 match p with
-                | CInt p when p >= 0 ->
+                | CConst (Int p) when p >= 0 ->
                   if p >= Array.length a then
                     raise InterpretationError
                   else
-                    k <| CInt a.(p)
+                    k <| CConst (Int a.(p))
                 | _ -> raise InterpretationError
               in step env k' kE key
           | _ -> raise InterpretationError
@@ -226,26 +244,26 @@ let eval (env : constant Env.t) gk kE e : unit =
 
     | TryWith (l, p, r) ->
         let kE' x = 
-          (* pseudo pattern matching *)
-          (* only allowed on ints or catch-all identifiers *)
-          match p, x with
-            | Int p, CInt v ->
-                if p = v then
-                  step env k kE r
-                else kE x
-            | Var id, _ ->
-                let env' = Env.add id x env in
-                step env' k kE r
-
-            | _ -> raise InterpretationError
+          let matched, env' = match_pattern env p x in
+          if matched then
+            step env' k kE r
         in step env k kE' l
 
     | Seq (l, r) ->
         let k' lc =
-          if lc = CUnit then
+          if lc = CConst Unit then
             step env k kE r
           else raise InterpretationError
         in step env k' kE l
+
+    | Tuple tl -> eval_tuple [] env k kE tl
+
+  and eval_tuple acc env k kE = function
+    | h :: t ->
+        let k' x = 
+          eval_tuple (x :: acc) env k kE t
+        in step env k' kE h
+    | _ -> k <| CTuple (List.rev acc)
 
   in let () = step env k kE e 
   in ()
