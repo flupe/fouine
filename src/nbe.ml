@@ -1,89 +1,150 @@
 let (<|) = (@@)
 
-type 'a k (* continuation variable *)
-and 'a v  (* value variable *)
-and 'a y  (* variable domain *)
+(* fouine types *)
+type _ tp =
+  | TUnit : unit tp
+  | TInt : int tp
+  | TBool : bool tp
+  | TRef : 'a tp -> 'a ref tp
+  | TPair : 'a tp * 'b tp -> ('a * 'b) tp
+  | TArr : 'a tp * 'b tp -> ('a -> 'b) tp
 
-(* shallow embedding
- * language of values in CPS *)
+let rec string_of_tp : type a. a tp -> string = function
+  | TUnit -> "unit"
+  | TInt -> "int"
+  | TBool -> "boot"
+  | TRef t -> Printf.sprintf "(%s ref)" (string_of_tp t)
+  | TPair (ta, tb) -> Printf.sprintf "(%s * %s)" (string_of_tp ta) (string_of_tp tb)
+  | TArr (ta, tb) -> Printf.sprintf "(%s -> %s)" (string_of_tp ta) (string_of_tp tb)
+
+(* type equality predicate *)
+type (_, _) eq = Eq : ('a, 'a) eq
+
+let rec equal_types : type a b. a tp -> b tp -> (a, b) eq option =
+  fun a b -> match a, b with
+  | TUnit, TUnit -> Some Eq
+  | TInt, TInt -> Some Eq
+  | TBool, TBool -> Some Eq
+  | TRef ta, TRef tb -> begin
+      match equal_types ta tb with
+      | Some Eq -> Some Eq
+      | None -> None
+    end
+  | TPair (lta, rta), TPair (ltb, rtb) -> begin
+      match equal_types lta ltb, equal_types rta rtb with
+      | Some Eq, Some Eq -> Some Eq
+      | _ -> None
+    end
+  | TArr (lta, rta), TArr (ltb, rtb) -> begin
+      match equal_types lta ltb, equal_types rta rtb with
+      | Some Eq, Some Eq -> Some Eq
+      | _ -> None
+    end
+
+(* shallow embedding *)
 type _ vl =
   | VUnit : unit vl
-  | VInt : int -> int vl
+  | VInt  : int -> int vl
   | VBool : bool -> bool vl
-  | VRef : 'a vl ref -> 'a ref vl
-  | VFun : ('a vl -> 'b md) -> ('a -> 'b) vl
-
-(* continuation monad *)
-and 'a md = ('a vl -> o) -> o
+  | VPair : 'a vl * 'b vl -> ('a * 'b) vl
+  | VFun  : ('a vl -> 'b vl) -> ('a -> 'b) vl
 
 (* target language: beta-normal, mu-long, lambda-terms *)
 and _ nf =
   | NUnit : unit nf
   | NInt : int -> int nf
   | NBool : bool -> bool nf
-  | NRef : 'a nf ref -> 'a ref nf
-  | NLam : ('a y -> 'b k -> o) -> ('a -> 'b) nf
+  | NPair : 'a nf * 'b nf -> ('a * 'b) nf
+  | NLam : ('a -> 'b nf) -> ('a -> 'b) nf
 
-and o =
-  | SRet : 'a k * 'a nf -> o
-  | SBind : ('a -> 'b) at * 'a nf * ('b v -> o) -> o
-  | SIf : bool at * o * o -> o
-  | SLet : 'a nf * ('a y -> o) -> o
-  | SNorm : 'a nf -> o
-
-and 'a at =
-  | AVar of 'a y
-  | AVal of 'a v
-
-(* source language *)
+(* source terms *)
 type _ tm =
-  | Var : 'a vl -> 'a tm
+  | Unit : unit tm
+  | Bool : bool -> bool tm
+  | Int : int -> int tm
+  | Pair : 'a tm * 'b tm -> ('a * 'b) tm
 
-  | Let : 'a tm * ('a vl ->'b tm) -> 'b tm
+  (* even without knowing the value of a variable
+   * we assume its type *)
+  | Var : 'a tp * string -> 'a tm
+  | LetIn : string * 'a tm * 'b tm -> 'b tm
 
-  | If : bool tm * 'a tm * 'a tm -> 'a tm
-  | CC : (('a -> 'b) -> 'a) tm -> 'a tm
-
-  | Plus : int tm * int tm -> int tm
-  | Minus : int tm * int tm -> int tm
-  | Mult : int tm * int tm -> int tm
-  | Div : int tm * int tm -> int tm
-  | Mod : int tm * int tm -> int tm
-  | UMinus : int tm -> int tm
-
-  | Lt : int tm * int tm -> bool tm
-  | Gt : int tm * int tm -> bool tm
-  | Leq : int tm * int tm -> bool tm
-  | Geq : int tm * int tm -> bool tm
-
-  | And : bool tm * bool tm -> bool tm
-  | Or : bool tm * bool tm -> bool tm
-  | Not : bool tm -> bool tm
-
-  (* ref instanciation *)
-  | Ref : 'a tm -> 'a ref tm
-  | SetRef : 'a ref tm * 'a tm -> unit tm
-  | Deref : 'a ref tm -> 'a tm
-
-  | Seq : unit tm * 'a tm -> 'a tm
-
-  | Fun : ('a vl -> 'b tm) -> ('a -> 'b) tm
+  | Fun : ('a -> 'b) tp * ('a vl -> 'b tm) -> ('a -> 'b) tm
   | App : ('a -> 'b) tm * 'a tm -> 'b tm
 
-(* our language types *)
-type _ tp =
-  | TUnit : unit tp
-  | TInt : int tp
-  | TBool : bool tp
-  | TRef : 'a tp -> 'a ref tp
-  | TArr : 'a tp * 'b tp -> ('a -> 'b) tp
+module Env = Map.Make (struct
+  type t = string
+  let compare = Pervasives.compare
+end)
 
-let rec string_of_type : type a. a tp -> string = function
-  | TUnit -> "unit"
-  | TInt -> "int"
-  | TBool -> "boot"
-  | TRef t -> Printf.sprintf "(%s ref)" (string_of_type t)
-  | TArr (ta, tb) -> Printf.sprintf "(%s -> %s)" (string_of_type ta) (string_of_type tb)
+type packed = Pack : 'a tp * 'a vl -> packed
+type env = packed Env.t
+
+let rec eval : type a. env -> a tm -> a tp * a vl = fun env t ->
+  match t with
+  | Int i -> TInt, VInt i
+  | Bool b -> TBool, VBool b
+  | Unit -> TUnit, VUnit
+  | Pair (a, b) ->
+      let ta, a = eval env a in
+      let tb, b = eval env b in
+      TPair (ta, tb), VPair (a, b)
+
+  | Var (t, id) ->
+      if Env.mem id env then
+        let Pack (t', v) = Env.find id env in
+        match equal_types t t' with
+        | Some Eq -> t, v
+        | None -> failwith "Type mismatch"
+      else failwith ("Unbound variable " ^ id)
+
+  | LetIn (id, v, e) ->
+      let t, v = eval env v in
+      eval (Env.add id (Pack (t, v)) env) e
+
+  | Fun (t, f) -> t, VFun (fun x -> snd <| eval env (f x))
+  | App (f, x) -> 
+      let _, x = eval env x in
+      let TArr (_, tr), VFun f = eval env f in
+      tr, (f x)
+
+(* not very convenient (but doable) *)
+let plus =
+  Fun (TArr(TInt, TArr(TInt, TInt)),
+     fun (VInt x) -> Fun (TArr(TInt, TInt),
+       fun (VInt y) -> Int (x + y)))
+
+let prog1 = App (App (plus, Int 2), Var (TInt, "x"))
+let prog2 = LetIn ("x", Int 3, prog1)
+
+(* 
+let binop out op =
+  Var(VFun(fun a ->
+    fun k -> k <| VFun(fun b ->
+      fun k -> k <| out (op a b))))
+
+let v_int x = VInt x
+let v_bool x = VBool x
+let v_unit () = VUnit
+
+(* builtin terms *)
+let plus = binop v_int (+)
+let minus = binop v_int (-)
+let mult = binop v_int ( * )
+let div = binop v_int (/)
+let mod_ = binop v_int (mod)
+
+let gt = binop v_bool (>)
+let lt = binop v_bool (<)
+let geq = binop v_bool (>=)
+let leq = binop v_bool (<=)
+
+let and_ = binop v_bool (&&)
+let or_ = binop v_bool (||)
+let eq = binop v_bool (=)
+let neq = binop v_bool (<>)
+let setref = binop v_unit (:=)
+
 
 let rec string_of_nf : type a. a nf -> string = function
   | NUnit -> "()"
@@ -92,69 +153,14 @@ let rec string_of_nf : type a. a nf -> string = function
   | NRef r -> Printf.sprintf "ref { %s }" (string_of_nf !r)
   | NLam _ -> "<lambda>"
 
-module Env = Map.Make (struct
-  type t = string
-  let compare = Pervasives.compare
-end)
 
-type packed = Pack : 'a vl -> packed
-type env = packed Env.t
-
-let rec eval : type a. a tm -> a md =
-  fun e c -> match e with
-  | Var x -> c <| x
-
-  | Plus (a, b) -> eval a
-      <| fun (VInt a) -> eval b
-      <| fun (VInt b) -> c (VInt (a + b))
-  | Minus (a, b) -> eval a
-      <| fun (VInt a) -> eval b
-      <| fun (VInt b) -> c (VInt (a - b))
-  | Mult (a, b) -> eval a
-      <| fun (VInt a) -> eval b
-      <| fun (VInt b) -> c (VInt (a * b))
-  | Div (a, b) -> eval a
-      <| fun (VInt a) -> eval b
-      <| fun (VInt b) -> c (VInt (a / b))
-  | Mod (a, b) -> eval a
-      <| fun (VInt a) -> eval b
-      <| fun (VInt b) -> c (VInt (a mod b))
-  | UMinus a -> eval a
-      <| fun (VInt a) -> c (VInt (-a))
-
-  | Lt (a, b) -> eval a
-      <| fun (VInt a) -> eval b
-      <| fun (VInt b) -> c (VBool (a < b))
-  | Gt (a, b) -> eval a
-      <| fun (VInt a) -> eval b
-      <| fun (VInt b) -> c (VBool (a > b))
-  | Leq (a, b) -> eval a
-      <| fun (VInt a) -> eval b
-      <| fun (VInt b) -> c (VBool (a <= b))
-  | Geq (a, b) -> eval a
-      <| fun (VInt a) -> eval b
-      <| fun (VInt b) -> c (VBool (a >= b))
-
-  (* left evaluation priority *)
-  | And (a, b) -> eval a
-      <| fun a -> let VBool v = a in if v then eval b c else c a
-  | Or (a, b) -> eval a
-      <| fun a -> let VBool v = a in if v then c a else eval b c
-  | Not a -> eval a
-      <| fun (VBool a) -> c (VBool (not a))
-
-  | Ref v -> eval v
-      <| fun v -> c (VRef (ref v))
-  | SetRef (r, v) -> eval r
-      <| fun (VRef r) -> eval v
-      <| fun v -> r := v; c VUnit
-  | Deref r -> eval r
-      <| fun (VRef r) -> c !r
-
-  | Seq (a, b) -> eval a
-      <| fun VUnit -> eval b c
-
-  | Fun f -> c <| VFun (fun x k -> eval (f x) k)
+(* 
+let rec eval : type a. a tm -> (a tp, a md) =
+  fun e -> match e with
+  | Var x -> begin
+      match x with
+    end
+  | Fun f -> c <| VFun (fun x k -> f (eval x) k)
   | App (m, n) ->
       eval m
       <| fun (VFun f) -> eval n
@@ -195,3 +201,5 @@ let nbe : type a. a tp -> a tm -> (a nf -> o) -> o =
 
 let id = VFun (fun x k -> k x)
 let app = VFun (fun (VFun f) k -> k (VFun (fun x k -> f x (fun v -> k v))))
+
+*)*)
