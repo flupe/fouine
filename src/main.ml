@@ -44,6 +44,9 @@ let () =
 
   (* Compile the input, and output it to a bytecode file. *)
   if !interm <> "" then begin
+    print_string <| bold "∴ ";
+    flush stdout;
+
     let prog = parse_input () in
     let bytecode = List.map Compiler.compile prog in
 
@@ -73,12 +76,13 @@ let () =
   (* Compile the input, and run the bytecode on the SECD machine. *)
   else if !machine then begin
     try
-      print_string ">>> ";
+      print_string <| bold "∴ ";
       flush stdout;
       let prog = parse_input () in
-      let bytecode = List.fold_left (@) [] (List.map Compiler.compile prog) in
+      let bytecode = List.fold_right (@) (List.map Compiler.compile prog) [] in
 
       if !debug then
+        List.iter print_ast prog;
         print_endline <| Bytecode.string_of_bytecode bytecode;
 
       try
@@ -96,7 +100,7 @@ let () =
     let env = ref Interpreter.base in
 
     while true do
-      print_string ">>> ";
+      print_string <| bold "∴ ";
       flush stdout;
 
       try
