@@ -1,2 +1,2 @@
 all:
-	ocamlbuild -yaccflag -v -lib unix src/main.native
+	ocamlbuild -use-menhir -lib unix src/main.native

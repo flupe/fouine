@@ -1,9 +1,6 @@
 %{
   open Ast
-
-  let mk_tuple a = function
-    | Tuple x -> Tuple (a :: x)
-    | b -> Tuple [a; b]
+  open List
 %}
 
 %token <string> IDENT
@@ -11,22 +8,16 @@
 %token LPAREN RPAREN BEGIN END SEMI
 %token LET IN IF THEN ELSE DELIM FUN RARROW REC
 %token PLUS MINUS MULT DIV MOD OR AND LT GT LEQ GEQ EQ NEQ
-%token UNDERSCORE COMMA APP
+%token UNDERSCORE COMMA
 
 %token TRUE FALSE
 %token TRY WITH RAISE E
-%token REF SETREF BANG
-%token AMAKE DOT LARROW
-%token LETEQ
-%token TUP
+%token SETREF BANG
+%token DOT LARROW
 
 %start main
 
 %type <Ast.t list> main
-%type <Ast.t> expr
-
-%type <Ast.constant> constant
-%type <Ast.pattern> pattern
 
 /*
 correct precedence of the ocaml lang
@@ -47,22 +38,18 @@ yet it produces too many conflicts
 %nonassoc NOELSE
 */
 
-%right COMMA
-%right REF
 %right IN
 %right RARROW
 %nonassoc NOELSE
-%nonassoc IF THEN ELSE
+%nonassoc ELSE
 %left MOD
 %left PLUS MINUS OR
 %right SEMI
 %left MULT DIV AND
 %nonassoc LARROW
 %right BANG
-%nonassoc TRY WITH
-%nonassoc LPAREN BEGIN AMAKE DOT
-%nonassoc LET DELIM FUN PRINT REC
-%nonassoc LT GT LEQ GEQ EQ NOT NEQ
+%nonassoc DOT
+%nonassoc LT GT LEQ GEQ EQ NEQ
 %right UMINUS
 %right SETREF
 
@@ -87,24 +74,30 @@ constant:
 array_access:
   | enclosed DOT LPAREN expr RPAREN { $1, $4 }
 
-/* n-tuples */
-pattern_tuple:
-  | pattern COMMA pattern { [$1; $3] }
-  | pattern COMMA pattern_tuple { $1 :: $3 }
+pattern_list:
+  | l = nonempty_list(pattern_enclosed) { l }
 
 pattern:
+  | l = separated_nonempty_list(COMMA, pattern_enclosed) {
+      match l with
+      | [x] -> x
+      | _ -> PPair l
+    }
+
+pattern_enclosed:
   | UNDERSCORE    { PAll }
   | constant      { PConst $1 }
   | IDENT         { PField $1 }
-  | LPAREN pattern_tuple RPAREN { PPair $2 }
-
-pattern_list:
-  | pattern { [$1] }
-  | pattern_list pattern { $2 :: $1 }
+  | LPAREN pattern RPAREN { $2 }
 
 enclosed:
   | BEGIN expr END { $2 }
-  | LPAREN expr RPAREN { $2 }
+  /* tuple */
+  | l = delimited(LPAREN, separated_nonempty_list(COMMA, expr), RPAREN) {
+      match l with
+      | [x] -> x
+      | _ -> Tuple l
+    }
   | BANG enclosed { Deref ($2) }
   | IDENT { Var $1 }
   | constant { Const $1 }
@@ -112,10 +105,6 @@ enclosed:
       let arr, e = $1 in
       ArrayRead (arr, e)
     }
-
-func:
-  | func enclosed { Call ($1, $2) }
-  | enclosed { $1 }
 
 /****************************************************/
 /****************************************************/
@@ -127,34 +116,37 @@ global:
   | global_lets { $1 }
   | expr { [$1] }
 
-/* todo: get rid/improve of this rule */
 global_lets:
   | { [] }
 
-  | LET pattern EQ expr global_lets %prec LETEQ { Let ($2, $4) :: $5 }
+  | LET pattern EQ expr global_lets { Let ($2, $4) :: $5 }
 
   | LET IDENT pattern_list EQ expr global_lets {
-      Let (PField $2, List.fold_left (fun e x -> Fun (x, e)) $5 $3) :: $6
+      Let (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5) :: $6
     }
 
   | LET REC IDENT pattern_list EQ expr global_lets {
-      LetRec ($3, List.fold_left (fun e x -> Fun (x, e)) $6 $4) :: $7
+      LetRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6) :: $7
     }
 
 expr:
-  | expr COMMA expr { mk_tuple $1 $3 }
+  /* function calls */
+  | args = enclosed+ {
+      List.fold_left (fun e a -> Call(e, a)) (hd args) (tl args)
+    }
+
   | LET pattern EQ expr IN expr { LetIn ($2, $4, $6) }
 
   | LET IDENT pattern_list EQ expr IN expr {
-      LetIn (PField $2, List.fold_left (fun e x -> Fun (x, e)) $5 $3, $7)
+      LetIn (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5, $7)
     }
 
   | LET REC IDENT pattern_list EQ expr IN expr {
-      LetRecIn ($3, List.fold_left (fun e x -> Fun (x, e)) $6 $4, $8)
+      LetRecIn ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6, $8)
     }
 
   | FUN pattern_list RARROW expr {
-      List.fold_left (fun e x -> Fun (x, e)) $4 $2
+      List.fold_right (fun x e -> Fun (x, e)) $2 $4
     }
 
   | IF expr THEN expr ELSE expr { IfThenElse ($2, $4, $6) }
@@ -185,5 +177,3 @@ expr:
   | expr NEQ expr   { BinaryOp (Neq, $1, $3) }
 
   | expr SEMI expr  { Seq ($1, $3) }
-
-  | func %prec APP { $1 }

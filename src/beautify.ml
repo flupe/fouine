@@ -20,8 +20,7 @@ let rec string_of_type = function
   | CRec _ -> blue "rec fun"
   | CMetaClosure _ -> red "builtin"
   | CArray _ -> cyan "int array"
-  (* todo *)
-  | CTuple _ -> magenta "tuple"
+  | CTuple cl -> "(" ^ String.concat " * " (List.map string_of_type cl) ^ ")"
 
 let print_constant_aux c = function
   | Int k -> c (green <| string_of_int k)
@@ -47,22 +46,31 @@ and print_pattern i o = function
   | PField id -> p i o id
   | PPair pl -> print_pattern_uple i o pl
 
-let rec print_value_aux env i o e =
+let rec print_comma_values env o = function
+  | [v] ->
+      print_value_aux env true o v;
+  | v :: t ->
+      print_value_aux env true o v;
+      print_string ", ";
+      print_comma_values env o t
+  | _ -> ()
+
+and print_value_aux env i o e =
   if not i then
     print_string o;
-  let p = print_string in
+  let pr = print_string in
   match e with
   | CConst c -> print_constant c
-  | CRef r -> p "-"
+  | CRef r -> pr "-"
   | CClosure (pattern, e, env) ->
-      p (blue "fun ");
+      pr (blue "fun ");
       print_pattern true (o ^ indent) pattern;
-      print_string " -> ";
+      pr " -> ";
       print_aux env true (o ^ indent) e
   | CRec (name, pattern, e, _) ->
-      p (blue "fun ");
+      pr (blue "fun ");
       print_pattern true (o ^ indent) pattern;
-      print_string " -> ";
+      pr " -> ";
       print_aux env true (o ^ indent) e
   | CArray a ->
       let rec aux acc = function
@@ -70,9 +78,13 @@ let rec print_value_aux env i o e =
         | x :: t -> aux (acc ^ green (string_of_int x) ^ "; ") t
         | _ -> acc
       in let values = aux "" (Array.to_list a)
-      in p <| "[| " ^ values ^ " |]"
-  | CMetaClosure _ -> print_string "-"
-  | CTuple _ -> p "tuple"
+      in pr <| "[| " ^ values ^ " |]"
+  | CMetaClosure _ -> pr "-"
+  | CTuple l ->
+      p i o "(";
+      print_comma_values env (o ^ indent) l;
+      p true o ")"
+      
 
 and esc env inline offset t =
   match t with
@@ -87,11 +99,10 @@ and esc env inline offset t =
 and print_uple env i o u =
   p i o "(";
   let rec aux = function
-    | [c] -> print_aux env true (o ^ indent) c; ()
+    | [c] -> print_aux env true (o ^ indent) c
     | c :: t ->
         print_aux env true (o ^ indent) c;
         print_string ", "; aux t
-    
     | _ -> ()
   in aux u;
   print_string ")"
@@ -180,6 +191,8 @@ and print_aux env i o e =
       esc i o arr;
       print_string ".(";
       esc true (o ^ indent) key; print_string ")"
+
+  | Tuple l -> print_uple env i o l
 
 let print_ast e =
   print_aux Env.empty true "" e;
