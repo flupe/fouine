@@ -5,6 +5,7 @@ type _ tp =
   | TUnit : unit tp
   | TInt : int tp
   | TBool : bool tp
+  | TList : 'a tp -> 'a list tp
   | TRef : 'a tp -> 'a ref tp
   | TPair : 'a tp * 'b tp -> ('a * 'b) tp
   | TArr : 'a tp * 'b tp -> ('a -> 'b) tp
@@ -12,7 +13,8 @@ type _ tp =
 let rec string_of_tp : type a. a tp -> string = function
   | TUnit -> "unit"
   | TInt -> "int"
-  | TBool -> "boot"
+  | TBool -> "bool"
+  | TList t -> Printf.sprintf "(%s list)" (string_of_tp t)
   | TRef t -> Printf.sprintf "(%s ref)" (string_of_tp t)
   | TPair (ta, tb) -> Printf.sprintf "(%s * %s)" (string_of_tp ta) (string_of_tp tb)
   | TArr (ta, tb) -> Printf.sprintf "(%s -> %s)" (string_of_tp ta) (string_of_tp tb)
@@ -30,6 +32,11 @@ let rec equal_types : type a b. a tp -> b tp -> (a, b) eq option =
       | Some Eq -> Some Eq
       | None -> None
     end
+  | TList ta, TList tb -> begin
+      match equal_types ta tb with
+      | Some Eq -> Some Eq
+      | None -> None
+    end
   | TPair (lta, rta), TPair (ltb, rtb) -> begin
       match equal_types lta ltb, equal_types rta rtb with
       | Some Eq, Some Eq -> Some Eq
@@ -41,35 +48,22 @@ let rec equal_types : type a b. a tp -> b tp -> (a, b) eq option =
       | _ -> None
     end
 
-(* shallow embedding *)
-type _ vl =
-  | VUnit : unit vl
-  | VInt  : int -> int vl
-  | VBool : bool -> bool vl
-  | VPair : 'a vl * 'b vl -> ('a * 'b) vl
-  | VFun  : ('a vl -> 'b vl) -> ('a -> 'b) vl
-
-(* target language: beta-normal, mu-long, lambda-terms *)
-and _ nf =
-  | NUnit : unit nf
-  | NInt : int -> int nf
-  | NBool : bool -> bool nf
-  | NPair : 'a nf * 'b nf -> ('a * 'b) nf
-  | NLam : ('a -> 'b nf) -> ('a -> 'b) nf
-
 (* source terms *)
 type _ tm =
   | Unit : unit tm
   | Bool : bool -> bool tm
   | Int : int -> int tm
+  (* empty list, with specified type *)
+  | Empty : 'a tp -> 'a list tm
+  | Cons : 'a tm * 'a list tm -> 'a list tm
+  | IfThenElse : bool tm * 'a tm * 'a tm -> 'a tm
   | Pair : 'a tm * 'b tm -> ('a * 'b) tm
-
   (* even without knowing the value of a variable
    * we assume its type *)
   | Var : 'a tp * string -> 'a tm
   | LetIn : string * 'a tm * 'b tm -> 'b tm
-
-  | Fun : ('a -> 'b) tp * ('a vl -> 'b tm) -> ('a -> 'b) tm
+  (* sadly, we have to specify the type of a function *)
+  | Fun : ('a -> 'b) tp * ('a -> 'b tm) -> ('a -> 'b) tm
   | App : ('a -> 'b) tm * 'a tm -> 'b tm
 
 module Env = Map.Make (struct
@@ -77,18 +71,29 @@ module Env = Map.Make (struct
   let compare = Pervasives.compare
 end)
 
-type packed = Pack : 'a tp * 'a vl -> packed
+type packed = Pack : 'a tp * 'a -> packed
 type env = packed Env.t
 
-let rec eval : type a. env -> a tm -> a tp * a vl = fun env t ->
+let rec eval : type a. env -> a tm -> a tp * a = fun env t ->
   match t with
-  | Int i -> TInt, VInt i
-  | Bool b -> TBool, VBool b
-  | Unit -> TUnit, VUnit
+  | Int i -> TInt, i
+  | Bool b -> TBool, b
+  | Unit -> TUnit, () 
+  | Empty t -> TList t, []
+
+  | Cons (x, q) ->
+      let t, q = eval env q in
+      let _, x = eval env x in
+      t, x :: q
+
+  | IfThenElse (c, a, b) ->
+      let _, c = eval env c in
+      eval env (if c then a else b)
+
   | Pair (a, b) ->
       let ta, a = eval env a in
       let tb, b = eval env b in
-      TPair (ta, tb), VPair (a, b)
+      TPair (ta, tb), (a, b)
 
   | Var (t, id) ->
       if Env.mem id env then
@@ -102,20 +107,94 @@ let rec eval : type a. env -> a tm -> a tp * a vl = fun env t ->
       let t, v = eval env v in
       eval (Env.add id (Pack (t, v)) env) e
 
-  | Fun (t, f) -> t, VFun (fun x -> snd <| eval env (f x))
+  | Fun (t, f) -> t, fun x -> snd <| eval env (f x)
   | App (f, x) -> 
       let _, x = eval env x in
-      let TArr (_, tr), VFun f = eval env f in
-      tr, (f x)
+      let TArr (_, tr), f = eval env f in
+      tr, f x
 
-(* not very convenient (but doable) *)
+(* not very convenient *)
+(* plus : (int -> int -> int) tm *)
 let plus =
   Fun (TArr(TInt, TArr(TInt, TInt)),
-     fun (VInt x) -> Fun (TArr(TInt, TInt),
-       fun (VInt y) -> Int (x + y)))
+     fun x -> Fun (TArr(TInt, TInt),
+       fun y -> Int (x + y)))
 
-let prog1 = App (App (plus, Int 2), Var (TInt, "x"))
+let int_binop = TArr(TInt, TArr(TInt, TInt))
+let base_env =
+  Env.empty
+  |> Env.add "+" (Pack (int_binop, (+)))
+  |> Env.add "-" (Pack (int_binop, (-)))
+  |> Env.add "*" (Pack (int_binop, ( * )))
+  |> Env.add "/" (Pack (int_binop, (/)))
+  |> Env.add "mod" (Pack (int_binop, (mod)))
+
+let prog1 = App (App (Var(int_binop, "+"), Int 2), Var (TInt, "x"))
 let prog2 = LetIn ("x", Int 3, prog1)
+
+(* target language: beta-normal, mu-long, lambda-terms *)
+(* maybe get read of this too? *)
+type _ nf =
+  | NUnit : unit nf
+  | NInt : int -> int nf
+  | NBool : bool -> bool nf
+  | NPair : 'a nf * 'b nf -> ('a * 'b) nf
+  | NLam : ('a y -> 'b nf) -> ('a -> 'b) nf
+  | NList : 'a nf list -> 'a list nf
+  | NRef : 'a nf ref -> 'a ref nf
+
+and _ at =
+  | AApp : ('a -> 'b) at * 'a nf -> 'b at
+  | AVar : 'a y -> 'a at
+
+and 'a y
+
+let rec reify : type a. a tp -> a -> a nf =
+  fun t v -> match t, v with
+  | TUnit, () -> NUnit
+  | TBool, b -> NBool b
+  | TInt, i -> NInt i
+  | TPair (a, b), (va, vb) ->
+      NPair (reify a va, reify b vb)
+  | TArr (ta, tb), f ->
+      NLam (fun x -> reify tb (f (reflect ta (AVar x))))
+  | TList t, [] -> NList []
+  | TList at, a :: q ->
+      let NList l = reify t q in
+      NList (reify at a :: l)
+  | TRef t, r ->
+      NRef (ref (reify t !r))
+
+and reflect : type a. a tp -> a at -> a =
+  fun t a -> match t with
+  | _ -> failwith "not implemented"
+
+(*
+    | TArr (a, b), f ->
+        fun x -> reflect a (AVar x) 
+          <| fun x -> f x
+          <| fun v -> reify b v
+          <| fun v -> SRet (k, v)
+    | TInt, VInt x -> c (NInt x)
+    | TBool, VBool x -> c (NBool x)
+    | TUnit, VUnit -> c NUnit
+    | TRef t, VRef r ->
+        reify t !r <| fun v -> c (NRef (ref v))
+*)
+
+(*
+and reflect : type a. a tp -> a at -> a md = fun t v ->
+  match t, v with
+  | TArr (a, b), f ->
+      fun c -> c
+        <| VFun (fun x k -> reify a x 
+        <| fun x -> SBind (f, x, fun v -> reflect b (AVal v) (fun v -> k v)))
+  | TBool, b -> fun c -> SIf (b, c (VBool true), c (VBool false))
+  | TInt, i -> fun c -> c (VInt i)
+  | _ -> failwith "error"
+
+*)
+
 
 (* 
 let binop out op =
@@ -145,14 +224,12 @@ let eq = binop v_bool (=)
 let neq = binop v_bool (<>)
 let setref = binop v_unit (:=)
 
-
 let rec string_of_nf : type a. a nf -> string = function
   | NUnit -> "()"
   | NBool b -> if b then "true" else "false"
   | NInt i -> string_of_int i
   | NRef r -> Printf.sprintf "ref { %s }" (string_of_nf !r)
   | NLam _ -> "<lambda>"
-
 
 (* 
 let rec eval : type a. a tm -> (a tp, a md) =
@@ -171,29 +248,6 @@ let rec eval : type a. a tm -> (a tp, a md) =
   | CC m ->
       eval m
       <| fun (VFun f) -> f (VFun (fun x k -> c x)) c
-
-let rec reify : type a. a tp -> a vl -> (a nf -> o) -> o =
-  fun t v c -> match t, v with
-    | TArr (a, b), VFun f -> c
-        <| NLam (fun x k -> reflect a (AVar x) 
-        <| fun x -> f x
-        <| fun v -> reify b v
-        <| fun v -> SRet (k, v))
-    | TInt, VInt x -> c (NInt x)
-    | TBool, VBool x -> c (NBool x)
-    | TUnit, VUnit -> c NUnit
-    | TRef t, VRef r ->
-        reify t !r <| fun v -> c (NRef (ref v))
-
-and reflect : type a. a tp -> a at -> a md = fun t v ->
-  match t, v with
-  | TArr (a, b), f ->
-      fun c -> c
-        <| VFun (fun x k -> reify a x 
-        <| fun x -> SBind (f, x, fun v -> reflect b (AVal v) (fun v -> k v)))
-  | TBool, b -> fun c -> SIf (b, c (VBool true), c (VBool false))
-  | TInt, i -> fun c -> c (VInt i)
-  | _ -> failwith "error"
 
 let nbe : type a. a tp -> a tm -> (a nf -> o) -> o =
   fun t m k ->
