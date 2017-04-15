@@ -38,6 +38,7 @@ yet it produces too many conflicts
 %nonassoc NOELSE
 */
 
+%right COMMA
 %right IN
 %right RARROW
 %nonassoc NOELSE
@@ -75,29 +76,18 @@ array_access:
   | enclosed DOT LPAREN expr RPAREN { $1, $4 }
 
 pattern_list:
-  | l = nonempty_list(pattern_enclosed) { l }
+  | l = nonempty_list(pattern) { l }
 
 pattern:
-  | l = separated_nonempty_list(COMMA, pattern_enclosed) {
-      match l with
-      | [x] -> x
-      | _ -> PPair l
-    }
-
-pattern_enclosed:
   | UNDERSCORE    { PAll }
   | constant      { PConst $1 }
   | IDENT         { PField $1 }
+  | pattern COMMA pattern { PPair ($1, $3) }
   | LPAREN pattern RPAREN { $2 }
 
 enclosed:
   | BEGIN expr END { $2 }
-  /* tuple */
-  | l = delimited(LPAREN, separated_nonempty_list(COMMA, expr), RPAREN) {
-      match l with
-      | [x] -> x
-      | _ -> Tuple l
-    }
+  | LPAREN expr RPAREN { $2 }
   | BANG enclosed { Deref ($2) }
   | IDENT { Var $1 }
   | constant { Const $1 }
@@ -130,6 +120,8 @@ global_lets:
     }
 
 expr:
+  | expr COMMA expr { Tuple ($1, $3) }
+
   /* function calls */
   | args = enclosed+ {
       List.fold_left (fun e a -> Call(e, a)) (hd args) (tl args)

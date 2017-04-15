@@ -20,40 +20,26 @@ let rec string_of_type = function
   | CRec _ -> blue "rec fun"
   | CMetaClosure _ -> red "builtin"
   | CArray _ -> cyan "int array"
-  | CTuple cl -> "(" ^ String.concat " * " (List.map string_of_type cl) ^ ")"
+  | CTuple (at, bt) ->
+      "(" ^ string_of_type at ^ " * " ^ string_of_type bt ^ ")"
 
-let print_constant_aux c = function
-  | Int k -> c (green <| string_of_int k)
-  | Bool b -> c (yellow (if b then "true" else "false"))
-  | Unit -> c (magenta "()")
+let print_constant_with f = function
+  | Int k -> f (green <| string_of_int k)
+  | Bool b -> f (yellow (if b then "true" else "false"))
+  | Unit -> f (magenta "()")
 
-let print_constant = print_constant_aux print_string
+let print_constant = print_constant_with print_string
 
-let rec print_pattern_uple i o u =
-  p i o "(";
-  let rec aux = function
-    | [c] -> print_pattern true (o ^ indent) c; ()
-    | c :: t ->
-        print_pattern true (o ^ indent) c;
-        print_string ", "; aux t
-    | _ -> ()
-  in aux u;
-  print_string ")"
-
-and print_pattern i o = function
-  | PAll -> p i o "_"
-  | PConst c -> print_constant_aux (p i o) c
-  | PField id -> p i o id
-  | PPair pl -> print_pattern_uple i o pl
-
-let rec print_comma_values env o = function
-  | [v] ->
-      print_value_aux env true o v;
-  | v :: t ->
-      print_value_aux env true o v;
+let rec print_pattern = function
+  | PAll -> print_string "_"
+  | PConst c -> print_constant c
+  | PField id -> print_string id
+  | PPair (ap, bp) ->
+      print_string "(";
+      print_pattern ap;
       print_string ", ";
-      print_comma_values env o t
-  | _ -> ()
+      print_pattern bp;
+      print_string ")";
 
 and print_value_aux env i o e =
   if not i then
@@ -64,12 +50,12 @@ and print_value_aux env i o e =
   | CRef r -> pr "-"
   | CClosure (pattern, e, env) ->
       pr (blue "fun ");
-      print_pattern true (o ^ indent) pattern;
+      print_pattern pattern;
       pr " -> ";
       print_aux env true (o ^ indent) e
   | CRec (name, pattern, e, _) ->
       pr (blue "fun ");
-      print_pattern true (o ^ indent) pattern;
+      print_pattern pattern;
       pr " -> ";
       print_aux env true (o ^ indent) e
   | CArray a ->
@@ -80,33 +66,23 @@ and print_value_aux env i o e =
       in let values = aux "" (Array.to_list a)
       in pr <| "[| " ^ values ^ " |]"
   | CMetaClosure _ -> pr "-"
-  | CTuple l ->
+  | CTuple (a, b) ->
       p i o "(";
-      print_comma_values env (o ^ indent) l;
-      p true o ")"
-      
+      print_value_aux env true (o ^ indent) a;
+      pr ", ";
+      print_value_aux env true (o ^ indent) b;
+      pr ")";
 
 and esc env inline offset t =
   match t with
   | Const _
-  | Var _ ->
+  | Var _
+  | Tuple _ ->
       print_aux env inline offset t
   | _ ->
       p inline offset "(";
       print_aux env true (offset ^ indent) t;
       print_string ")"
-
-and print_uple env i o u =
-  p i o "(";
-  let rec aux = function
-    | [c] -> print_aux env true (o ^ indent) c
-    | c :: t ->
-        print_aux env true (o ^ indent) c;
-        print_string ", "; aux t
-    | _ -> ()
-  in aux u;
-  print_string ")"
-
 
 and print_aux env i o e = 
   (* lazy me is lazy *)
@@ -114,7 +90,7 @@ and print_aux env i o e =
   let esc = esc env in
   match e with
   | Const c -> 
-      print_constant_aux (p i o) c
+      print_constant_with (p i o) c
 
   | Var id ->
       if Env.mem id env then
@@ -142,7 +118,7 @@ and print_aux env i o e =
 
   | LetIn (pattern, v, e) ->
       p i o (red "let ");
-      print_pattern true (o ^ indent) pattern;
+      print_pattern pattern;
       print_string " = \n";
         print_aux false (o ^ indent) v;
         print_newline();
@@ -158,7 +134,7 @@ and print_aux env i o e =
 
   | Let (pattern, v) ->
       p i o (red "let ");
-      print_pattern true (o ^ indent) pattern;
+      print_pattern pattern;
       print_string " =\n";
       print_aux false (o ^ indent) v
 
@@ -170,13 +146,13 @@ and print_aux env i o e =
       p i o (red "try\n");
         esc false (o ^ indent) fn;
       p false o (red "\nwith " ^ blue "E ");
-      print_pattern true (o ^ indent) e;
+      print_pattern e;
       p true o " ->\n";
         esc false (o ^ indent) fail
 
   | Fun (pattern, fn) ->
       p i o (blue "fun ");
-      print_pattern true (o ^ indent) pattern;
+      print_pattern pattern;
       print_string " ->\n";
         print_aux false (o ^ indent) fn
 
@@ -192,7 +168,12 @@ and print_aux env i o e =
       print_string ".(";
       esc true (o ^ indent) key; print_string ")"
 
-  | Tuple l -> print_uple env i o l
+  | Tuple (a, b) ->
+      p i o "(";
+      print_aux true (o ^ indent) a;
+      print_string ", ";
+      print_aux true (o ^ indent) b;
+      print_string ")"
 
 let print_ast e =
   print_aux Env.empty true "" e;

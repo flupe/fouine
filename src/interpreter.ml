@@ -43,7 +43,13 @@ and match_pattern env (a : pattern) (b : constant) =
   | PAll, _ -> true, env
   | PField id, _ -> true, Env.add id b env
   | PConst p, CConst c -> p = c, env
-  | PPair pl, CTuple cl -> match_uple env pl cl
+  | PPair (ap, bp), CTuple (av, bv) ->
+      let matched, env' = match_pattern env ap av in
+      if matched then
+        let matched, env' = match_pattern env' bp bv in
+        if matched then true, env'
+        else false, env
+      else false, env
   | _ -> raise InterpretationError
 
 let eval (env : constant Env.t) gk kE e : unit =
@@ -256,14 +262,12 @@ let eval (env : constant Env.t) gk kE e : unit =
           else raise InterpretationError
         in step env k' kE l
 
-    | Tuple tl -> eval_tuple [] env k kE tl
-
-  and eval_tuple acc env k kE = function
-    | h :: t ->
-        let k' x = 
-          eval_tuple (x :: acc) env k kE t
-        in step env k' kE h
-    | _ -> k <| CTuple (List.rev acc)
+    | Tuple (a, b) ->
+        let k' av =
+        let k' bv =
+          k (CTuple (av, bv))
+        in step env k' kE b
+        in step env k' kE a
 
   in let () = step env k kE e 
   in ()

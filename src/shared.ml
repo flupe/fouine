@@ -32,7 +32,7 @@ type constant
   | CClosure of Ast.pattern * Ast.t * constant Env.t
   | CRec of Ast.identifier * Ast.pattern  * Ast.t * constant Env.t
   | CArray of int array
-  | CTuple of constant list
+  | CTuple of constant * constant
 
 let rec equal_types a b =
   match a, b with
@@ -40,7 +40,8 @@ let rec equal_types a b =
   | CRec _, CRec _
   | CArray _, CArray _ -> true
   | CRef ra, CRef rb -> equal_types !ra !rb
-  | CTuple al, CTuple bl -> List.for_all2 equal_types al bl
+  | CTuple (a1, a2), CTuple (b1, b2) ->
+      equal_types a1 b1 && equal_types a2 b2
   | CConst a, CConst b -> begin match a, b with
     | Int _, Int _
     | Bool _, Bool _

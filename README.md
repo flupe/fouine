@@ -102,8 +102,8 @@ let f = prInt in f 2;;
 - **new!** : Full pattern matching in `let` bindings, function declarations and exceptions.
 
   ```ocaml
-  >>> let (x, (y, z), _, 3) = (1, (2, 3), true, 3);;
-  - : tuple = tuple
+  >>> let x, (y, z) = 1, (2, 3);;
+  - : (int * (int * int)) = (1, (2, 3))
   >>> x;;
   - : int = 1
   >>> y;;
