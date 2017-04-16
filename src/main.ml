@@ -112,7 +112,7 @@ let () =
           List.iter print_ast prog;
 
         let error x =
-          print_endline <| red "[ERROR]" ^ " Uncaught exception.";
+          print_endline <| err "[ERROR]" ^ " Uncaught exception.";
           print_value x in
 
         let success e x =
@@ -122,10 +122,10 @@ let () =
         try
           run_prog env success error prog
         with Interpreter.InterpretationError ->
-          print_endline <| red "[ERROR]" ^ " The interpreter ended prematurely.";
+          print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
 
       with _ ->
-        print_endline <| red "[ERROR]" ^ " Syntax error.";
+        print_endline <| err "[ERROR]" ^ " Syntax error.";
     done
     (*
   end

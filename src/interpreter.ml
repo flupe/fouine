@@ -29,28 +29,24 @@ let base = Env.empty
        | _ -> raise TypeError
      ))
 
-let rec match_uple env (a : pattern list) (b : constant list) =
-  match a, b with
-  | [], [] -> true, env
-  | p :: pl, c :: cl ->
-      let matched, env' = match_pattern env p c in
-      if matched then match_uple env' pl cl
-      else false, env
-  | _ -> raise InterpretationError
-
-and match_pattern env (a : pattern) (b : constant) =
-  match a, b with
+let rec match_pattern env (a : pattern) (b : constant) =
+  let rec aux penv a b = match a, b with
   | PAll, _ -> true, env
-  | PField id, _ -> true, Env.add id b env
+  | PField id, _ ->
+      if Env.mem id penv then
+        if Env.find id penv = b then true, penv
+        else false, env
+      else true, Env.add id b penv
   | PConst p, CConst c -> p = c, env
   | PPair (ap, bp), CTuple (av, bv) ->
-      let matched, env' = match_pattern env ap av in
+      let matched, penv = match_pattern penv ap av in
       if matched then
-        let matched, env' = match_pattern env' bp bv in
-        if matched then true, env'
+        let matched, penv = match_pattern penv bp bv in
+        if matched then true, penv 
         else false, env
       else false, env
   | _ -> raise InterpretationError
+  in aux env a b
 
 let eval (env : constant Env.t) gk kE e : unit =
   let k = gk env in
@@ -269,5 +265,5 @@ let eval (env : constant Env.t) gk kE e : unit =
         in step env k' kE b
         in step env k' kE a
 
-  in let () = step env k kE e 
+  in let _ = step env k kE e 
   in ()

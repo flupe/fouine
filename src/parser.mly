@@ -38,8 +38,8 @@ yet it produces too many conflicts
 %nonassoc NOELSE
 */
 
-%right COMMA
 %right IN
+%right COMMA
 %right RARROW
 %nonassoc NOELSE
 %nonassoc ELSE
@@ -121,6 +121,7 @@ global_lets:
 
 expr:
   | expr COMMA expr { Tuple ($1, $3) }
+  | expr SEMI expr  { Seq ($1, $3) }
 
   /* function calls */
   | args = enclosed+ {
@@ -167,5 +168,3 @@ expr:
   | expr GEQ expr   { BinaryOp (Geq, $1, $3) }
   | expr EQ expr    { BinaryOp (Eq, $1, $3) }
   | expr NEQ expr   { BinaryOp (Neq, $1, $3) }
-
-  | expr SEMI expr  { Seq ($1, $3) }
