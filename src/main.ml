@@ -108,8 +108,10 @@ let () =
       try
         let prog = parse_input () in
 
-        if !debug then
+        if !debug then begin
           List.iter print_ast prog;
+          List.iter (fun x -> print_ast @@ Transform.rem_exceptions x) prog;
+        end;
 
         let error x =
           print_endline <| err "[ERROR]" ^ " Uncaught exception.";
