@@ -39,14 +39,15 @@ let rec match_pattern env (a : pattern) (b : constant) =
       else true, Env.add id b penv
   | PConst p, CConst c -> p = c, env
   | PPair (ap, bp), CTuple (av, bv) ->
-      let matched, penv = match_pattern penv ap av in
-      if matched then
-        let matched, penv = match_pattern penv bp bv in
-        if matched then true, penv 
-        else false, env
+      let matched, penv = aux penv ap av in
+      if matched then aux penv bp bv
       else false, env
   | _ -> raise InterpretationError
-  in aux env a b
+  in
+  let matched, env' = aux Env.empty a b in
+  if matched then true, Env.fold Env.add env' env
+  else false, env
+
 
 let eval (env : constant Env.t) gk kE e : unit =
   let k = gk env in
