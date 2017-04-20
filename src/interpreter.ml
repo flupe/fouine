@@ -40,10 +40,6 @@ let rec match_pattern env (a : pattern) (b : constant) =
   | PConst p, CConst c -> p = c, env
   | PTuple pl, CTuple cl ->
       match_list env pl cl
-  (* | PTuple pl, CTuple cl ->
-      let matched, penv = aux penv ap av in
-      if matched then aux penv bp bv
-      else false, env *)
   | _ -> raise InterpretationError
   in
   let matched, env' = aux Env.empty a b in
@@ -58,7 +54,6 @@ and match_list env al bl =
       else false, env
   | [], [] -> true, env
   | _ -> raise InterpretationError
-
 
 let eval (env : constant Env.t) gk kE e : unit =
   let k = gk env in
