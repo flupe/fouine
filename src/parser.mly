@@ -19,40 +19,24 @@
 
 %type <Ast.t list> main
 
-/*
-correct precedence of the ocaml lang
-yet it produces too many conflicts
-%nonassoc LET FUN TRY
-%right SEMI
-%nonassoc IF
-%right LARROW SETREF
-%right COMMA
-%right OR
-%right AND
-%left EQ LT LEQ GT GEQ NEQ
-%left PLUS MINUS
-%left MULT DIV MOD
-%nonassoc UMINUS
-%nonassoc APP
-%nonassoc BANG
-%nonassoc NOELSE
-*/
-
-%right IN
-%right COMMA
-%right RARROW
+%nonassoc IN
+%nonassoc SEMI
 %nonassoc NOELSE
 %nonassoc ELSE
-%left MOD
-%left PLUS MINUS OR
-%right SEMI
-%left MULT DIV AND
 %nonassoc LARROW
-%right BANG
-%nonassoc DOT
-%nonassoc LT GT LEQ GEQ EQ NEQ
-%right UMINUS
 %right SETREF
+%nonassoc below_COMMA
+%left COMMA
+%right RARROW
+%right OR
+%right AND
+%left PLUS MINUS
+%left MOD
+%left MULT DIV
+%nonassoc LT GT LEQ GEQ EQ NEQ
+%nonassoc UMINUS
+%nonassoc DOT
+%nonassoc BANG
 
 %%
 
@@ -75,14 +59,20 @@ constant:
 array_access:
   | enclosed DOT LPAREN expr RPAREN { $1, $4 }
 
-pattern_list:
-  | l = nonempty_list(pattern) { l }
-
 pattern:
+  | l = separated_nonempty_list(COMMA, pattern_enclosed) {
+      match l with
+      | [x] -> x
+      | _ -> PTuple l
+    }
+
+pattern_list:
+  | l = nonempty_list(pattern_enclosed) { l }
+
+pattern_enclosed:
   | UNDERSCORE    { PAll }
   | constant      { PConst $1 }
   | IDENT         { PField $1 }
-  | pattern COMMA pattern { PPair ($1, $3) }
   | LPAREN pattern RPAREN { $2 }
 
 enclosed:
@@ -104,7 +94,7 @@ main:
 
 global:
   | global_lets { $1 }
-  | expr { [$1] }
+  | expr { [ $1 ] }
 
 global_lets:
   | { [] }
@@ -119,8 +109,12 @@ global_lets:
       LetRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6) :: $7
     }
 
+comma_list:
+  | comma_list COMMA expr { $3 :: $1 }
+  | expr COMMA expr { [$3; $1] }
+
 expr:
-  | expr COMMA expr { Tuple ($1, $3) }
+  | comma_list %prec below_COMMA { Tuple (List.rev $1) }
   | expr SEMI expr  { Seq ($1, $3) }
 
   /* function calls */

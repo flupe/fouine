@@ -34,19 +34,30 @@ let rec match_pattern env (a : pattern) (b : constant) =
   | PAll, _ -> true, env
   | PField id, _ ->
       if Env.mem id penv then
-        if Env.find id penv = b then true, penv
-        else false, env
+        (* i thought ocaml allowed things like this but no *)
+        raise InterpretationError
       else true, Env.add id b penv
   | PConst p, CConst c -> p = c, env
-  | PPair (ap, bp), CTuple (av, bv) ->
+  | PTuple pl, CTuple cl ->
+      match_list env pl cl
+  (* | PTuple pl, CTuple cl ->
       let matched, penv = aux penv ap av in
       if matched then aux penv bp bv
-      else false, env
+      else false, env *)
   | _ -> raise InterpretationError
   in
   let matched, env' = aux Env.empty a b in
   if matched then true, Env.fold Env.add env' env
   else false, env
+
+and match_list env al bl = 
+  match al, bl with
+  | p :: pt, v :: vt ->
+      let matched, env' = match_pattern env p v in
+      if matched then match_list env' pt vt
+      else false, env
+  | [], [] -> true, env
+  | _ -> raise InterpretationError
 
 
 let eval (env : constant Env.t) gk kE e : unit =
@@ -259,12 +270,19 @@ let eval (env : constant Env.t) gk kE e : unit =
           else raise InterpretationError
         in step env k' kE l
 
-    | Tuple (a, b) ->
-        let k' av =
-        let k' bv =
-          k (CTuple (av, bv))
-        in step env k' kE b
-        in step env k' kE a
+    | Tuple vl ->
+        let k' vl =
+          k <| CTuple vl
+        in eval_list env k' kE vl
+
+  and eval_list env k kE = function
+    | h :: t ->
+        let k' v =
+        let k' vt =
+          k <| v :: vt
+        in eval_list env k' kE t
+        in step env k' kE h
+    | _ -> k []
 
   in let _ = step env k kE e 
   in ()

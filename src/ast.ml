@@ -19,12 +19,12 @@ type pattern =
   | PAll (* underscore, matches everything *)
   | PConst of constant
   | PField of identifier
-  | PPair  of pattern * pattern
+  | PTuple  of pattern list
 
 type t
   = Var  of identifier
   | Const of constant
-  | Tuple of t * t
+  | Tuple of t list
 
   | BinaryOp of binary_op * t * t
   | UnaryOp  of unary_op  * t

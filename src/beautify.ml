@@ -20,8 +20,8 @@ let rec string_of_type = function
   | CRec _ -> blue "rec fun"
   | CMetaClosure _ -> red "builtin"
   | CArray _ -> cyan "int array"
-  | CTuple (at, bt) ->
-      "(" ^ string_of_type at ^ " * " ^ string_of_type bt ^ ")"
+  | CTuple tl ->
+      "(" ^ (String.concat " * " <| List.map string_of_type tl) ^ ")"
 
 let print_constant_with f = function
   | Int k -> f (green <| string_of_int k)
@@ -34,11 +34,11 @@ let rec print_pattern = function
   | PAll -> print_string "_"
   | PConst c -> print_constant c
   | PField id -> print_string id
-  | PPair (ap, bp) ->
+  | PTuple pl ->
       print_string "(";
-      print_pattern ap;
-      print_string ", ";
-      print_pattern bp;
+      List.iteri (fun i p ->
+        if i <> 0 then print_string ", ";
+        print_pattern p) pl;
       print_string ")";
 
 and print_value_aux env i o e =
@@ -66,11 +66,11 @@ and print_value_aux env i o e =
       in let values = aux "" (Array.to_list a)
       in pr <| "[| " ^ values ^ " |]"
   | CMetaClosure _ -> pr "-"
-  | CTuple (a, b) ->
+  | CTuple vl ->
       p i o "(";
-      print_value_aux env true (o ^ indent) a;
-      pr ", ";
-      print_value_aux env true (o ^ indent) b;
+      List.iteri (fun i v ->
+        if i <> 0 then pr ", ";
+        print_value_aux env true (o ^ indent) v) vl;
       pr ")";
 
 and esc env inline offset t =
@@ -168,11 +168,11 @@ and print_aux env i o e =
       print_string ".(";
       esc true (o ^ indent) key; print_string ")"
 
-  | Tuple (a, b) ->
+  | Tuple vl ->
       p i o "(";
-      print_aux true (o ^ indent) a;
-      print_string ", ";
-      print_aux true (o ^ indent) b;
+      List.iteri (fun i v ->
+        if i <> 0 then print_string ", ";
+        print_aux true (o ^ indent) v) vl;
       print_string ")"
 
 let print_ast e =
