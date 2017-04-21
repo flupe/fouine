@@ -36,11 +36,21 @@ let rec rem_exceptions = function
             [ Fun (PField "a", Call (Var "k", UnaryOp (op, Var "a")))
             ; Var "kE"])
 
+  (* here we get rid of the let statement, but we could keep it
+   * as we have to for recursive definitions *)
   | LetIn (p, x, e) ->
       make_fn <| Call
         ( rem_exceptions x
         , Tuple
             [ Fun (p, Call (rem_exceptions e, def_args))
+            ; Var "kE"])
+
+  | LetRecIn (p, x, e) ->
+      make_fn <| Call
+        ( rem_exceptions x
+        , Tuple
+            [ Fun (PField "x",
+                LetRecIn (p, Var "x", Call (rem_exceptions e, def_args)))
             ; Var "kE"])
 
   | IfThenElse (cond, a, b) ->
@@ -77,7 +87,7 @@ let rec rem_exceptions = function
         ( rem_exceptions a
         , Tuple
           [ Var "k"
-          ; Fun (p, rem_exceptions e)])
+          ; Fun (p, Call (rem_exceptions e, def_args))])
 
   | Raise e ->
       make_fn <|

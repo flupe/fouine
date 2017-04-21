@@ -1,0 +1,200 @@
+%{
+  open Ast
+  open List
+
+  type interm =
+    | R of Ast.t
+    | E of interm
+
+  let rec unwrap = function
+    | R t -> begin
+      | Tuple (a, b) -> Tuple (unwrap a, unwrap b)
+      | Nuple l -> Nuple (List.map unwrap l)
+
+      | BinaryOp (op, a, b) -> BinaryOp (op, unwrap a, unwrap b)
+      | UnaryOp  (op, a) -> UnaryOp (op, unwrap a)
+
+      | Let (p, t) -> Let (p, unwrap t)
+      | LetRec (id, t) -> LetRec (id, unwrap t)
+      | LetIn (p, a, b) -> LetIn (p, unwrap a, unwrap b)
+      | LetRecIn (id, a, b) -> 
+
+      | IfThenElse of t * t * t
+      | Fun of pattern * t
+      | Call of t * t
+      | TryWith of t * pattern * t
+      | Raise of t
+      | Seq of t * t
+      | Deref of t
+      | ArraySet of t * t * t
+      | ArrayRead of t * t
+      | x -> x
+
+    end
+%}
+
+%token <string> IDENT
+%token <int> INT
+%token LPAREN RPAREN BEGIN END SEMI
+%token LET IN IF THEN ELSE DELIM FUN RARROW REC
+%token PLUS MINUS MULT DIV MOD OR AND LT GT LEQ GEQ EQ NEQ
+%token UNDERSCORE COMMA
+
+%token TRUE FALSE
+%token TRY WITH RAISE E
+%token SETREF BANG
+%token DOT LARROW
+
+%start main
+
+%type <Ast.t list> main
+
+/*
+correct precedence of the ocaml lang
+yet it produces too many conflicts
+%nonassoc LET FUN TRY
+%right SEMI
+%nonassoc IF
+%right LARROW SETREF
+%right COMMA
+%right OR
+%right AND
+%left EQ LT LEQ GT GEQ NEQ
+%left PLUS MINUS
+%left MULT DIV MOD
+%nonassoc UMINUS
+%nonassoc APP
+%nonassoc BANG
+%nonassoc NOELSE
+*/
+
+%right IN
+%right RARROW
+%nonassoc NOELSE
+%nonassoc ELSE
+%left MOD
+%left PLUS MINUS OR
+%right COMMA
+%right SEMI
+%left MULT DIV AND
+%nonassoc LARROW
+%right BANG
+%nonassoc DOT
+%nonassoc LT GT LEQ GEQ EQ NEQ
+%right UMINUS
+%right SETREF
+
+%%
+
+boolean:
+  | TRUE { Bool true }
+  | FALSE { Bool false }
+
+integer:
+  | INT { Int $1 }
+
+unit:
+  | LPAREN RPAREN { Unit }
+  | BEGIN END { Unit }
+
+constant:
+  | boolean { $1 }
+  | integer { $1 }
+  | unit    { $1 }
+
+array_access:
+  | enclosed DOT LPAREN expr RPAREN { $1, $4 }
+
+pattern_list:
+  | l = nonempty_list(pattern) { l }
+
+pattern:
+  | UNDERSCORE    { PAll }
+  | constant      { PConst $1 }
+  | IDENT         { PField $1 }
+  | pattern COMMA pattern { PPair ($1, $3) }
+  | LPAREN pattern RPAREN { $2 }
+
+enclosed:
+  | BEGIN expr END { R $2 }
+  | LPAREN expr RPAREN { R $2 }
+  | BANG enclosed { R (Deref ($2)) }
+  | IDENT { R (Var $1) }
+  | constant { R (Const $1) }
+  | array_access {
+      let arr, e = $1 in
+      R (ArrayRead (arr, e))
+    }
+
+/****************************************************/
+/****************************************************/
+
+main:
+  | global DELIM { $1 }
+
+global:
+  | global_lets { $1 }
+  | expr { [ unwrap $1] }
+
+global_lets:
+  | { [] }
+
+  | LET pattern EQ expr global_lets { unwrap @@ Let ($2, $4) :: $5 }
+
+  | LET IDENT pattern_list EQ expr global_lets {
+      unwrap @@ Let (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5) :: $6
+    }
+
+  | LET REC IDENT pattern_list EQ expr global_lets {
+      unwrap @@ LetRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6) :: $7
+    }
+
+expr:
+(* | expr COMMA expr { Tuple ($1, $3) } *)
+  | expr SEMI expr  { R (Seq ($1, $3)) }
+
+  /* function calls */
+  | args = enclosed+ {
+      R (List.fold_left (fun e a -> Call(e, a)) (hd args) (tl args))
+    }
+
+  | LET pattern EQ expr IN expr { R (LetIn ($2, $4, $6)) }
+
+  | LET IDENT pattern_list EQ expr IN expr {
+      R (LetIn (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5, $7))
+    }
+
+  | LET REC IDENT pattern_list EQ expr IN expr {
+      R (LetRecIn ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6, $8))
+    }
+
+  | FUN pattern_list RARROW expr {
+      R (List.fold_right (fun x e -> Fun (x, e)) $2 $4)
+    }
+
+  | IF expr THEN expr ELSE expr { R (IfThenElse ($2, $4, $6)) }
+  | IF expr THEN expr %prec NOELSE { R (IfThenElse ($2, $4, Const Unit)) }
+  | TRY expr WITH E pattern RARROW expr { R (TryWith ($2, $5, $7)) }
+  | RAISE enclosed { R (Raise $2) }
+
+  | array_access LARROW expr {
+      let arr, key = $1 in
+      R (ArraySet (arr, key, $3))
+    }
+
+  | expr SETREF expr   { R (BinaryOp (SetRef, $1, $3)) }
+  | MINUS expr %prec UMINUS { R (UnaryOp (UMinus, $2)) }
+
+  | expr PLUS expr  { R (BinaryOp (Plus, $1, $3)) }
+  | expr MINUS expr { R (BinaryOp (Minus, $1, $3)) }
+  | expr MULT expr  { R (BinaryOp (Mult, $1, $3)) }
+  | expr DIV expr   { R (BinaryOp (Div, $1, $3)) }
+  | expr MOD expr   { R (BinaryOp (Mod, $1, $3)) }
+  | expr OR expr    { R (BinaryOp (Or, $1, $3)) }
+  | expr AND expr   { R (BinaryOp (And, $1, $3)) }
+  | expr LT expr    { R (BinaryOp (Lt, $1, $3)) }
+  | expr GT expr    { R (BinaryOp (Gt, $1, $3)) }
+  | expr LEQ expr   { R (BinaryOp (Leq, $1, $3)) }
+  | expr GEQ expr   { R (BinaryOp (Geq, $1, $3)) }
+  | expr EQ expr    { R (BinaryOp (Eq, $1, $3)) }
+  | expr NEQ expr   { R (BinaryOp (Neq, $1, $3)) }

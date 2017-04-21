@@ -16,6 +16,7 @@ let rec run_prog env success error = function
 let () =
   let debug = ref false in
   let machine = ref false in
+  let no_exceptions = ref false in
   let interm = ref "" in
   let from = ref "" in
 
@@ -24,6 +25,7 @@ let () =
     ; "-machine", Arg.Set machine, "Compile and run the input from SECD."
     ; "-interm", Arg.Set_string interm, "Compile input to the given output file."
     ; "-from", Arg.Set_string from, "Run bytecode from the given output file."
+    ; "-noexceptions", Arg.Set no_exceptions, "Transform the input in fouine code without exceptions."
     ]
 
   in Arg.parse speclist ignore "Fouine REPL 2017";
@@ -95,13 +97,27 @@ let () =
       print_endline <| red "[ERROR]" ^ " Syntax error.";
   end
 
-  (* Start an interpretation REPL. *)
-  else begin *)
+    (* Start an interpretation REPL. *)
+    else begin *)
     let env = ref Interpreter.base in
 
+    let error x =
+      print_endline <| err "[ERROR]" ^ " Uncaught exception.";
+      print_value x in
+
+    let success e x =
+      env := e;
+      print_value x in
+
+    (* If we do the transformation to get rid of exceptions,
+     * we need to add default continuations to the outer scope *)
+    (* NOTE: for now I can't find of an easy way maintain state between executions *)
+    if !no_exceptions then
+      env := !env
+        |> Env.add "k" (CMetaClosure (fun x -> print_value x; x))
+        |> Env.add "kE" (CMetaClosure (fun x -> error x; x));
+
     while true do
-      (* ilé bien gentil romain mais 
-       * j'ai pas ce caractère dans ma police *)
       print_string <| bold ">>> ";
       flush stdout;
 
@@ -110,21 +126,26 @@ let () =
 
         if !debug then begin
           List.iter print_ast prog;
-          List.iter (fun x -> print_ast @@ Transform.rem_exceptions x) prog;
         end;
 
-        let error x =
-          print_endline <| err "[ERROR]" ^ " Uncaught exception.";
-          print_value x in
+        if !no_exceptions then begin
+          let prog = prog
+            |> List.map Transform.rem_exceptions
+            |> List.map (fun x -> Call (x, Tuple [ Var "k"; Var "kE" ]))
+          in
+          if !debug then List.iter print_ast prog;
+          try
+            List.iter (fun x -> ignore <| Simpinterp.eval !env x) prog
+          with Simpinterp.InterpretationError ->
+            print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
+        end
+        else begin
+          try
+            run_prog env success error prog
+          with Interpreter.InterpretationError ->
+            print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
+        end
 
-        let success e x =
-          env := e;
-          print_value x in
-
-        try
-          run_prog env success error prog
-        with Interpreter.InterpretationError ->
-          print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
 
       with _ ->
         print_endline <| err "[ERROR]" ^ " Syntax error.";
