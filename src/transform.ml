@@ -68,7 +68,7 @@ let rec rem_exceptions = function
 
   (* should not work when functions are stored in variables *)
   | Fun (p, fn) ->
-      make_fn <| Call(Var "k", Fun (p, Call(rem_exceptions fn, def_args)))
+      make_fn <| Call(Var "k", Fun (PTuple [p; def_pat], Call(rem_exceptions fn, def_args)))
 
   | Call (f, x) ->
       make_fn <| Call
@@ -77,7 +77,7 @@ let rec rem_exceptions = function
             [ Fun (PField "x", Call
                 ( rem_exceptions f
                 , Tuple
-                    [ Fun (PField "f", Call (Var "k", Call (Var "f", Var "x")))
+                    [ Fun (PField "f", Call (Var "f", Tuple [Var "x"; def_args]))
                     ; Var "kE"]
                 ))
             ; Var "kE"])
