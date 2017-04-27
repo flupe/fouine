@@ -2,6 +2,7 @@ open Ast
 open Shared
 
 let make_fn expr = Fun (PTuple [PField "k"; PField "kE"], expr)
+let make_success_fn expr = Fun (PTuple [PField "k"; PAll], expr)
 let def_args = Tuple [Var "k"; Var "kE"]
 let def_pat = PTuple [PField "k"; PField "kE"]
 
@@ -45,12 +46,11 @@ let rec rem_exceptions = function
             [ Fun (p, Call (rem_exceptions e, def_args))
             ; Var "kE"])
 
-  | LetRecIn (p, x, e) ->
+  | Let (p, x) ->
       make_fn <| Call
         ( rem_exceptions x
         , Tuple
-            [ Fun (PField "x",
-                LetRecIn (p, Var "x", Call (rem_exceptions e, def_args)))
+            [ Fun (PField "e", Let (p, Var "e"))
             ; Var "kE"])
 
   | IfThenElse (cond, a, b) ->
@@ -93,5 +93,8 @@ let rec rem_exceptions = function
       make_fn <|
         Call (rem_exceptions e, Tuple [Var "kE"; Var "kE"])
 
-  | x -> make_fn <| Call (Var "k", x)
+  | x -> make_success_fn <| Call (Var "k", x)
 
+
+let rec rem_ref = function
+  | _ -> failwith "not supported"
