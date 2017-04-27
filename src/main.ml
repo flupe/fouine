@@ -9,7 +9,7 @@ let parse_input () =
 
 let rec run_prog env success error = function
   | e :: t ->
-      let tp = Infer.type_of [] e in
+      let tp = Infer.type_of Infer.base_env e in
       print_endline <| "- : " ^ (Infer.string_of_type tp);
       Interpreter.eval !env success error e;
       run_prog env success error t

@@ -8,6 +8,7 @@ type tp =
   | TConst of id
   | TGeneric of id (* named quantified type variable *)
   | TList of tp
+  | TRef of tp
   | TArray of tp
   | TArrow of tp * tp
   | TTuple of tp list
@@ -19,6 +20,23 @@ and tvar =
   
 (* type environment *)
 type env = (Ast.identifier * tp) list
+
+let base_env : env = 
+  [ "ref", TArrow (TGeneric "a", TRef (TGeneric "a"))
+  ; "not", TArrow (TConst "bool", TConst "bool")
+  ; "prInt", TArrow (TConst "int", TConst "int")
+  ; "prOut", TArrow (TGeneric "a", TConst "unit")
+  ; "aMake", TArrow (TConst "int",  TArray (TConst "int"))
+  ]
+
+let type_of_binop = function
+  | Plus | Minus | Mult | Div | Mod -> TArrow (TConst "int", TArrow (TConst "int", TConst "int"))
+  | Or | And -> TArrow (TConst "bool", TArrow (TConst "bool", TConst "bool"))
+  | Lt | Gt | Leq | Geq | Eq | Neq -> TArrow (TGeneric "a", TArrow (TGeneric "a", TConst "bool"))
+  | SetRef -> TArrow (TRef (TGeneric "a"), TArrow (TGeneric "a", TConst "unit"))
+
+let type_of_unop = function
+  | UMinus -> TArrow (TConst "int", TConst "int")
 
 let count = ref 0
 let reset () = count := 0 
@@ -32,23 +50,28 @@ let new_name () =
   else "t" ^ string_of_int (n - 25)
 
 (* create a fresh unbound variable at a given level *)
-let new_var lvl =
-  TVar (ref (Unbound (new_name (), lvl)))
+let new_var lvl = TVar (ref (Unbound (new_name (), lvl)))
 
-(* TODO: add correct parens *)
-let rec string_of_type = function
-  | TConst name -> name
-  | TList t -> Printf.sprintf "%s list" (string_of_type t)
-  | TArray t -> Printf.sprintf "%s array" (string_of_type t)
-  | TArrow (ta, tb) -> Printf.sprintf "%s -> %s" (string_of_type ta) (string_of_type tb)
-  | TGeneric name -> "'" ^ name
-  | TTuple tl -> String.concat " * " (List.map string_of_type tl)
-  | TVar { contents = Unbound (id, _) } -> "'" ^ id
-  | TVar { contents = Link t } -> string_of_type t
+let rec string_of_type t =
+  let rec aux enclosed = function
+    | TConst name -> name
+    | TGeneric id | TVar { contents = Unbound (id, _) } -> "'" ^ id
+    | TVar { contents = Link t } -> aux enclosed t
+    | t -> begin
+        Printf.sprintf (if enclosed then "(%s)" else "%s") @@ match t with
+        | TList t -> Printf.sprintf "%s list" (aux true t)
+        | TRef t -> Printf.sprintf "%s ref" (aux true t)
+        | TArray t -> Printf.sprintf "%s array" (aux true t)
+        | TArrow (ta, tb) -> Printf.sprintf "%s -> %s" (aux true ta) (aux true tb)
+        | TTuple tl -> String.concat " * " (List.map (aux true) tl)
+        | _ -> ""
+      end
+  in aux false t
 
 (* when possible, simplify TVar occurences *)
 let rec prune = function
   | TList t -> TList (prune t)
+  | TRef t -> TRef (prune t)
   | TArray t -> TArray (prune t)
   | TArrow (ta, tb) -> TArrow (prune ta, prune tb)
   | TTuple tl -> TTuple (List.map prune tl)
@@ -68,6 +91,7 @@ let rec occurs tvr = function
       in tvr' := Unbound (id, min_lvl)
   | TVar { contents = Link t } -> occurs tvr t
   | TList t -> occurs tvr t
+  | TRef t -> occurs tvr t
   | TArray t -> occurs tvr t
   | TArrow (ta, tb) -> occurs tvr ta; occurs tvr tb
   | TTuple tl -> List.iter (occurs tvr) tl
@@ -83,9 +107,8 @@ let rec unify ta tb =
       unify tla tlb;
       unify tra trb
   | TList ta, TList tb -> unify ta tb
+  | TRef ta, TRef tb -> unify ta tb
   | TTuple tla, TTuple tlb -> List.iter2 unify tla tlb
-
-  (* unification of linked type *)
   | TVar { contents = Link ta}, tb
   | ta, TVar { contents = Link tb} -> unify ta tb
 
@@ -100,6 +123,7 @@ let rec unify ta tb =
 (* quantify a given type at a specific level *)
 let rec generalize level = function
   | TList t -> TList (generalize level t)
+  | TRef t -> TRef (generalize level t)
   | TArray t -> TArray (generalize level t)
   | TArrow (ta, tb) -> TArrow (generalize level ta, generalize level tb)
   | TTuple tl -> TTuple (List.map (generalize level) tl)
@@ -119,6 +143,7 @@ let instanciate level t =
       end
     | TVar { contents = Link t } -> aux mem t
     | TList t -> let (t, mem) = aux mem t in TList t, mem
+    | TRef t -> let (t, mem) = aux mem t in TRef t, mem
     | TArray t -> let (t, mem) = aux mem t in TArray t, mem
     | TArrow (ta, tb) ->
         let (ta, mem) = aux mem ta in
@@ -138,29 +163,44 @@ let type_of_const = function
 
 let rec type_of env expr = 
   reset ();
-  let rec aux env level = function
+  let rec infer env level = function
     | Var id -> instanciate level (List.assoc id env)
     | Const c -> type_of_const c
-    | Tuple l -> TTuple (List.map (aux env level) l)
+    | Tuple l -> TTuple (List.map (infer env level) l)
 
-    (* TODO: unary & binary ops, we should consider them as functions from now on *)
+    (* TODO: consider binops & unops as functions *)
+    | BinaryOp (op, x, y) ->
+        let t_x = infer env level x in
+        let t_y = infer env level y in
+        let t_r = new_var level in
+        let t_op = type_of_binop op |> instanciate level in
+        unify t_op (TArrow (t_x, TArrow (t_y, t_r)));
+        t_r
+
+    | UnaryOp (op, x) ->
+        let t_x = infer env level x in
+        let t_r = new_var level in
+        let t_op = type_of_unop op |> instanciate level in
+        unify t_op (TArrow (t_x, t_r));
+        t_r
+
     (* TODO: handle pattern matching. it's not difficult but i'm just tired rn *)
 
     | LetIn (PField id, v, e) ->
-        let tv = aux env (level + 1) v in
-        aux ((id, generalize level tv) :: env) level e
+        let tv = infer env (level + 1) v in
+        infer ((id, generalize level tv) :: env) level e
 
     | Fun (PField x, fn) ->
         let t_var = new_var level in
-        let t_ret = aux ((x, t_var) :: env) level fn in
+        let t_ret = infer ((x, t_var) :: env) level fn in
         TArrow (t_var, t_ret)
 
     | Call (fn, x) ->
-        let t_fun = aux env level fn in
-        let t_var = aux env level x in
+        let t_fun = infer env level fn in
+        let t_var = infer env level x in
         let t_ret = new_var level in
         unify t_fun (TArrow (t_var, t_ret));
         t_ret
 
     | _ -> TConst "unit"
-  in prune (aux env 0 expr)
+  in prune (infer env 0 expr)
