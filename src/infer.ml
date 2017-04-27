@@ -107,6 +107,7 @@ let rec unify ta tb =
       unify tla tlb;
       unify tra trb
   | TList ta, TList tb -> unify ta tb
+  | TArray ta, TArray tb -> unify ta tb
   | TRef ta, TRef tb -> unify ta tb
   | TTuple tla, TTuple tlb -> List.iter2 unify tla tlb
   | TVar { contents = Link ta}, tb
@@ -172,6 +173,12 @@ let rec match_type level env tp = function
       let tl = List.map (fun _ -> new_var level) pl in unify (TTuple tl) tp;
       List.fold_left2 (fun env p t -> match_type level env t p) env pl tl
 
+let rec create_type_pattern env level = function
+  | PAll | PConst _ -> env
+  (* TODO: check multiple occurences *)
+  | PField id -> (id, generalize level (new_var level)) :: env
+  | PTuple pl -> List.fold_left (fun env p -> create_type_pattern env level p) env pl
+
 let rec type_of env expr = 
   reset ();
   let rec infer env level = function
@@ -195,11 +202,17 @@ let rec type_of env expr =
         unify t_op (TArrow (t_x, t_r));
         t_r
 
-    (* TODO: handle pattern matching. it's not difficult but i'm just tired rn *)
-
     | LetIn (p, v, e) ->
         let tv = infer env (level + 1) v in
         infer (match_type level env tv p) level e
+
+    | IfThenElse (c, a, b) ->
+        let t_c = infer env level c in
+        let t_a = infer env level a in
+        let t_b = infer env level b in
+        unify (TConst "bool") t_c;
+        unify t_a t_b;
+        t_a
 
     | Fun (p, fn) ->
         let t_var = new_var level in
@@ -212,6 +225,43 @@ let rec type_of env expr =
         let t_ret = new_var level in
         unify t_fun (TArrow (t_var, t_ret));
         t_ret
+
+    | TryWith (a, p, b) ->
+        let t_a = infer env level a in
+        let env' = create_type_pattern env level p in
+        let t_b = infer env' level b in
+        unify t_a t_b;
+        t_a
+
+    | Raise t -> new_var level
+
+    | Seq (a, b) ->
+        let t_b = infer env level b in
+        t_b
+
+    | Deref e ->
+        let t_e = infer env level e in
+        let t = new_var level in
+        unify (TRef t) t_e;
+        t
+
+    | ArraySet (a, k, v) ->
+        let t_a = infer env level a in
+        let t_k = infer env level k in
+        let t_v = infer env level v in
+        let t = new_var level in
+        unify (TConst "int") t_k;
+        unify (TArray t) t_a;
+        unify t t_v;
+        TConst "unit"
+
+    | ArrayRead (a, k) ->
+        let t_a = infer env level a in
+        let t_k = infer env level k in
+        let t = new_var level in
+        unify (TConst "int") t_k;
+        unify (TArray t) t_a;
+        t
 
     | _ -> TConst "unit"
   in prune (infer env 0 expr)
