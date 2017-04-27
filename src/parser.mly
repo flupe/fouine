@@ -4,15 +4,24 @@
 %}
 
 %token <string> IDENT
+
+%token <string> PREFIX
+%token <string> INFIX0
+%token <string> INFIX1
+%token <string> INFIX2
+%token <string> INFIX3
+%token <string> INFIX4
+%token <string> INFIX5
+
 %token <int> INT
 %token LPAREN RPAREN BEGIN END SEMI
 %token LET IN IF THEN ELSE DELIM FUN RARROW REC
-%token PLUS MINUS MULT DIV MOD OR AND LT GT LEQ GEQ EQ NEQ
+%token MINUS MOD EQ
 %token UNDERSCORE COMMA
 
 %token TRUE FALSE
 %token TRY WITH RAISE E
-%token SETREF BANG
+%token SETREF
 %token DOT LARROW
 
 %start main
@@ -23,20 +32,21 @@
 %nonassoc SEMI
 %nonassoc NOELSE
 %nonassoc ELSE
-%nonassoc LARROW
-%right SETREF
+%right SETREF LARROW
 %nonassoc below_COMMA
 %left COMMA
 %right RARROW
-%right OR
-%right AND
-%left PLUS MINUS
-%left MOD
-%left MULT DIV
-%nonassoc LT GT LEQ GEQ EQ NEQ
+%left EQ INFIX5    (* =... <... >... |... &... $... != *)
+%right INFIX4      (* @... ^... *)
+(* :: *)
+%left MINUS INFIX3 (* +... -... *)
+%left MOD INFIX2   (* *... /... %... mod *)
+%right INFIX1      (* **... *)
 %nonassoc UMINUS
+(* function application *)
+%nonassoc INFIX0   (* #... *)
 %nonassoc DOT
-%nonassoc BANG
+%nonassoc PREFIX
 
 %%
 
@@ -69,17 +79,35 @@ pattern:
 pattern_list:
   | l = nonempty_list(pattern_enclosed) { l }
 
+pident:
+  | IDENT         { $1 }
+  | operator         { $1 }
+
 pattern_enclosed:
   | UNDERSCORE    { PAll }
   | constant      { PConst $1 }
-  | IDENT         { PField $1 }
+  | pident        { PField $1 }
   | LPAREN pattern RPAREN { $2 }
+
+operator:
+  | LPAREN PREFIX RPAREN { $2 }
+  | LPAREN MOD RPAREN { "mod" }
+  | LPAREN EQ RPAREN { "=" }
+  | LPAREN MINUS RPAREN { "-" }
+  | LPAREN SETREF RPAREN { ":=" }
+  | LPAREN INFIX0 RPAREN { $2 }
+  | LPAREN INFIX1 RPAREN { $2 }
+  | LPAREN INFIX2 RPAREN { $2 }
+  | LPAREN INFIX3 RPAREN { $2 }
+  | LPAREN INFIX4 RPAREN { $2 }
+  | LPAREN INFIX5 RPAREN { $2 }
 
 enclosed:
   | BEGIN expr END { $2 }
   | LPAREN expr RPAREN { $2 }
-  | BANG enclosed { Deref ($2) }
+  | operator { Var $1 }
   | IDENT { Var $1 }
+  | PREFIX enclosed { Call (Var $1, $2) }
   | constant { Const $1 }
   | array_access {
       let arr, e = $1 in
@@ -101,11 +129,11 @@ global_lets:
 
   | LET pattern EQ expr global_lets { Let ($2, $4) :: $5 }
 
-  | LET IDENT pattern_list EQ expr global_lets {
+  | LET pident pattern_list EQ expr global_lets {
       Let (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5) :: $6
     }
 
-  | LET REC IDENT pattern_list EQ expr global_lets {
+  | LET REC pident pattern_list EQ expr global_lets {
       LetRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6) :: $7
     }
 
@@ -124,11 +152,11 @@ expr:
 
   | LET pattern EQ expr IN expr { LetIn ($2, $4, $6) }
 
-  | LET IDENT pattern_list EQ expr IN expr {
+  | LET pident pattern_list EQ expr IN expr {
       LetIn (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5, $7)
     }
 
-  | LET REC IDENT pattern_list EQ expr IN expr {
+  | LET REC pident pattern_list EQ expr IN expr {
       LetRecIn ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6, $8)
     }
 
@@ -146,19 +174,20 @@ expr:
       ArraySet (arr, key, $3)
     }
 
-  | expr SETREF expr   { BinaryOp (SetRef, $1, $3) }
-  | MINUS expr %prec UMINUS { UnaryOp (UMinus, $2) }
+  | MINUS expr %prec UMINUS {
+      match $2 with
+      | Const (Int x) -> Const (Int (-x))
+      | x -> Call (Var "~-", x) (* syntaxic sugar *)
+    }
 
-  | expr PLUS expr  { BinaryOp (Plus, $1, $3) }
-  | expr MINUS expr { BinaryOp (Minus, $1, $3) }
-  | expr MULT expr  { BinaryOp (Mult, $1, $3) }
-  | expr DIV expr   { BinaryOp (Div, $1, $3) }
-  | expr MOD expr   { BinaryOp (Mod, $1, $3) }
-  | expr OR expr    { BinaryOp (Or, $1, $3) }
-  | expr AND expr   { BinaryOp (And, $1, $3) }
-  | expr LT expr    { BinaryOp (Lt, $1, $3) }
-  | expr GT expr    { BinaryOp (Gt, $1, $3) }
-  | expr LEQ expr   { BinaryOp (Leq, $1, $3) }
-  | expr GEQ expr   { BinaryOp (Geq, $1, $3) }
-  | expr EQ expr    { BinaryOp (Eq, $1, $3) }
-  | expr NEQ expr   { BinaryOp (Neq, $1, $3) }
+  | expr MOD expr   { Call (Call (Var "mod", $1), $3) }
+  | expr EQ expr    { Call (Call (Var "=", $1), $3) }
+  | expr MINUS expr { Call (Call (Var "-", $1), $3) }
+  | expr SETREF expr { Call (Call (Var ":=", $1), $3) }
+
+  | expr INFIX0 expr  { Call (Call (Var $2, $1), $3) }
+  | expr INFIX1 expr  { Call (Call (Var $2, $1), $3) }
+  | expr INFIX2 expr  { Call (Call (Var $2, $1), $3) }
+  | expr INFIX3 expr  { Call (Call (Var $2, $1), $3) }
+  | expr INFIX4 expr  { Call (Call (Var $2, $1), $3) }
+  | expr INFIX5 expr  { Call (Call (Var $2, $1), $3) }

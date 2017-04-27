@@ -29,6 +29,14 @@ let base = Env.empty
        | _ -> raise TypeError
      ))
 
+  (* operators *)
+  |> Env.add "!" (CMetaClosure (fun n ->
+       match n with
+       | CRef x -> !x
+       | _ -> raise TypeError
+     ))
+  |> Env.add "<" (CMetaClosure (fun a -> CMetaClosure (fun b -> CConst (Bool (a < b)))))
+
 let rec match_pattern env (a : pattern) (b : constant) =
   let rec aux penv a b = match a, b with
   | PAll, _ -> true, env
@@ -59,59 +67,6 @@ let eval (env : constant Env.t) gk kE e : unit =
   let k = gk env in
   let rec step env k kE = function
     | Const c -> k <| CConst c
-
-    | BinaryOp (op, l, r) ->
-        let k' lc = 
-        let k' rc =
-          k <|
-          match lc, rc with
-          | CConst (Int lv), CConst (Int rv) -> begin
-              match op with
-              | Plus -> CConst (Int (lv + rv))
-              | Minus -> CConst (Int (lv - rv))
-              | Mult -> CConst (Int (lv * rv))
-              | Div -> CConst (Int (lv / rv))
-              | Mod -> CConst (Int (lv mod rv))
-              | Lt -> CConst (Bool (lv < rv))
-              | Gt -> CConst (Bool (lv > rv))
-              | Leq -> CConst (Bool (lv <= rv))
-              | Geq -> CConst (Bool (lv >= rv))
-              | Eq -> CConst (Bool (lv = rv))
-              | Neq -> CConst (Bool (lv <> rv))
-              | _ -> raise InterpretationError
-            end
-
-          | CConst (Bool lv), CConst (Bool rv) -> begin
-              match op with
-              | Or -> CConst (Bool (lv || rv))
-              | And -> CConst (Bool (lv && rv))
-              | Eq -> CConst (Bool (lv = rv))
-              | Neq -> CConst (Bool (lv <> rv))
-              | _ -> raise InterpretationError
-            end
-
-          | CRef r, _ ->
-              if op = SetRef then
-                (* references cannot change type *)
-                if equal_types rc !r then begin
-                  r := rc;
-                  CConst Unit
-                end else raise InterpretationError
-              else raise InterpretationError
-
-          | _ -> raise InterpretationError
-        in step env k' kE r
-        in step env k' kE l
-
-    | UnaryOp (op, e) ->
-        let k' c =
-          k <|
-          match c with
-          | CConst (Int i) ->
-              if op = UMinus then CConst (Int (-i))
-              else raise InterpretationError
-          | _ -> raise InterpretationError
-        in step env k' kE e
 
     | Var id ->
         k <|
@@ -200,13 +155,6 @@ let eval (env : constant Env.t) gk kE e : unit =
                 k <| f v
               in step env k' kE x
 
-          | _ -> raise InterpretationError
-        in step env k' kE e
-
-    | Deref e ->
-        let k' v =
-          match v with
-          | CRef r -> k !r
           | _ -> raise InterpretationError
         in step env k' kE e
 

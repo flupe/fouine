@@ -1,11 +1,13 @@
 open Ast
+open Print
 
 type id = string
 type level = int
 
 (* types supported by the fouine language *)
 type tp =
-  | TConst of id
+  | TInt | TBool | TUnit
+  (* | TConst of id *) (* this constructor will be used if we later allow type creation *)
   | TGeneric of id (* named quantified type variable *)
   | TList of tp
   | TRef of tp
@@ -21,22 +23,34 @@ and tvar =
 (* type environment *)
 type env = (Ast.identifier * tp) list
 
+let infix_bool = TArrow (TGeneric "a", TArrow (TGeneric "a", TBool))
+
 let base_env : env = 
   [ "ref", TArrow (TGeneric "a", TRef (TGeneric "a"))
-  ; "not", TArrow (TConst "bool", TConst "bool")
-  ; "prInt", TArrow (TConst "int", TConst "int")
-  ; "prOut", TArrow (TGeneric "a", TConst "unit")
-  ; "aMake", TArrow (TConst "int",  TArray (TConst "int"))
+  ; "not", TArrow (TBool, TBool)
+  ; "prInt", TArrow (TInt, TInt)
+  ; "prOut", TArrow (TGeneric "a", TUnit)
+  ; "aMake", TArrow (TInt,  TArray TInt)
+
+  (* operators *)
+  ; "+", TArrow (TInt, TArrow (TInt, TInt))
+  ; "-", TArrow (TInt, TArrow (TInt, TInt))
+  ; "~-", TArrow (TInt, TInt) (* infix negation *)
+  ; "*", TArrow (TInt, TArrow (TInt, TInt))
+  ; "/", TArrow (TInt, TArrow (TInt, TInt))
+  ; "mod", TArrow (TInt, TArrow (TInt, TInt))
+
+  ; "!", TArrow (TRef (TGeneric "a"), TGeneric "a")
+  ; ":=", TArrow (TRef (TGeneric "a"), TArrow(TGeneric "a", TUnit))
+  ; "<", infix_bool
+  ; ">", infix_bool
+  ; "<=", infix_bool
+  ; ">=", infix_bool
+  ; "<>", infix_bool
+  ; "=", infix_bool
+  ; "&&", TArrow (TBool, TArrow (TBool, TBool))
+  ; "||", TArrow (TBool, TArrow (TBool, TBool))
   ]
-
-let type_of_binop = function
-  | Plus | Minus | Mult | Div | Mod -> TArrow (TConst "int", TArrow (TConst "int", TConst "int"))
-  | Or | And -> TArrow (TConst "bool", TArrow (TConst "bool", TConst "bool"))
-  | Lt | Gt | Leq | Geq | Eq | Neq -> TArrow (TGeneric "a", TArrow (TGeneric "a", TConst "bool"))
-  | SetRef -> TArrow (TRef (TGeneric "a"), TArrow (TGeneric "a", TConst "unit"))
-
-let type_of_unop = function
-  | UMinus -> TArrow (TConst "int", TConst "int")
 
 let count = ref 0
 let reset () = count := 0 
@@ -52,10 +66,14 @@ let new_name () =
 (* create a fresh unbound variable at a given level *)
 let new_var lvl = TVar (ref (Unbound (new_name (), lvl)))
 
-let rec string_of_type t =
+let rec string_of_type ?clean:(c = false) t =
+  let col f x = if c then x else f x in
   let rec aux enclosed = function
-    | TConst name -> name
-    | TGeneric id | TVar { contents = Unbound (id, _) } -> "'" ^ id
+    | TInt -> col green "int"
+    | TBool -> col yellow "bool"
+    | TUnit -> col magenta "unit"
+    (* | TConst name -> name *)
+    | TGeneric id | TVar { contents = Unbound (id, _) } -> col cyan ("'" ^ id)
     | TVar { contents = Link t } -> aux enclosed t
     | t -> begin
         Printf.sprintf (if enclosed then "(%s)" else "%s") @@ match t with
@@ -102,7 +120,7 @@ let rec unify ta tb =
   if ta == tb then () (* physical equality *)
   else match ta, tb with
   (* straightforward unification *)
-  | TConst a, TConst b when a = b -> ()
+  (* | TConst a, TConst b when a = b -> () *)
   | TArrow (tla, tra), TArrow (tlb, trb) ->
       unify tla tlb;
       unify tra trb
@@ -119,7 +137,7 @@ let rec unify ta tb =
       occurs tvr t;
       tvr := Link t
 
-  | _ -> failwith (Printf.sprintf "Cannot unify %s with %s." (string_of_type ta) (string_of_type tb))
+  | _ -> failwith (Printf.sprintf "Cannot unify %s with %s." (string_of_type ta ~clean:true) (string_of_type tb ~clean:true))
 
 (* quantify a given type at a specific level *)
 let rec generalize level = function
@@ -158,9 +176,9 @@ let instanciate level t =
   in fst (aux [] t)
 
 let type_of_const = function
-  | Int _ -> TConst "int"
-  | Bool _ -> TConst "bool"
-  | Unit -> TConst "unit"
+  | Int _ -> TInt
+  | Bool _ -> TBool
+  | Unit -> TUnit
 
 let rec match_type level env tp = function
   | PAll -> env
@@ -174,33 +192,23 @@ let rec match_type level env tp = function
       List.fold_left2 (fun env p t -> match_type level env t p) env pl tl
 
 let rec create_type_pattern env level = function
-  | PAll | PConst _ -> env
+  | PAll -> new_var level, env
+  | PConst c -> type_of_const c, env
   (* TODO: check multiple occurences *)
-  | PField id -> (id, generalize level (new_var level)) :: env
-  | PTuple pl -> List.fold_left (fun env p -> create_type_pattern env level p) env pl
+  | PField id -> let t = new_var level in t, (id, t) :: env
+  | PTuple pl -> 
+      let step (tl, env) p = let t, env = create_type_pattern env level p in (t :: tl, env) in
+      let tl, env = List.fold_left step ([], env) pl in
+      TTuple (List.rev tl), env
 
 let rec type_of renv expr = 
   reset ();
   let rec infer env level = function
-    | Var id -> instanciate level (List.assoc id env)
+    | Var id ->
+        if List.mem_assoc id env then instanciate level (List.assoc id env)
+        else failwith ("Unbound variable " ^ id)
     | Const c -> type_of_const c
     | Tuple l -> TTuple (List.map (infer env level) l)
-
-    (* TODO: consider binops & unops as functions *)
-    | BinaryOp (op, x, y) ->
-        let t_x = infer env level x in
-        let t_y = infer env level y in
-        let t_r = new_var level in
-        let t_op = type_of_binop op |> instanciate level in
-        unify t_op (TArrow (t_x, TArrow (t_y, t_r)));
-        t_r
-
-    | UnaryOp (op, x) ->
-        let t_x = infer env level x in
-        let t_r = new_var level in
-        let t_op = type_of_unop op |> instanciate level in
-        unify t_op (TArrow (t_x, t_r));
-        t_r
 
     | LetIn (p, v, e) ->
         let tv = infer env (level + 1) v in
@@ -215,7 +223,7 @@ let rec type_of renv expr =
         let t_c = infer env level c in
         let t_a = infer env level a in
         let t_b = infer env level b in
-        unify (TConst "bool") t_c;
+        unify TBool t_c;
         unify t_a t_b;
         t_a
 
@@ -233,8 +241,8 @@ let rec type_of renv expr =
 
     | TryWith (a, p, b) ->
         let t_a = infer env level a in
-        let env' = create_type_pattern env level p in
-        let t_b = infer env' level b in
+        let t_p = new_var level in
+        let t_b = infer (match_type level env t_p p) level b in
         unify t_a t_b;
         t_a
 
@@ -244,29 +252,23 @@ let rec type_of renv expr =
         let t_b = infer env level b in
         t_b
 
-    | Deref e ->
-        let t_e = infer env level e in
-        let t = new_var level in
-        unify (TRef t) t_e;
-        t
-
     | ArraySet (a, k, v) ->
         let t_a = infer env level a in
         let t_k = infer env level k in
         let t_v = infer env level v in
         let t = new_var level in
-        unify (TConst "int") t_k;
+        unify TInt t_k;
         unify (TArray t) t_a;
         unify t t_v;
-        TConst "unit"
+        TUnit
 
     | ArrayRead (a, k) ->
         let t_a = infer env level a in
         let t_k = infer env level k in
         let t = new_var level in
-        unify (TConst "int") t_k;
+        unify TInt t_k;
         unify (TArray t) t_a;
         t
 
-    | _ -> TConst "unit"
+    | _ -> TUnit
   in prune (infer !renv 0 expr)

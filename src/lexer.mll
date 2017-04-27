@@ -1,10 +1,13 @@
 {
   open Parser
+  open Lexing
   exception Eof
 }
 
 let blank = [' ' '\r' '\t' '\n']
 let digit = ['0'-'9']
+
+let operator_char = ['!' '$' '%' '&' '*' '+' '-' '.' '/' ':' '<' '=' '>' '?' '@' '^' '|' '~']
 
 rule token = parse
   | "begin" { BEGIN }
@@ -21,38 +24,36 @@ rule token = parse
   | "with" { WITH }
   | "raise" { RAISE }
   | 'E' { E }
-  | ":=" { SETREF }
   | "rec" { REC }
   | "mod" { MOD }
   | "->" { RARROW }
   | "<-" { LARROW }
-  | "&&" { AND }
-  | "||" { OR }
+  | ":=" { SETREF }
   | '_' { UNDERSCORE }
-
-  | "<>" { NEQ }
-  | "<=" { LEQ }
-  | ">=" { GEQ }
 
   | '(' { LPAREN }
   | ')' { RPAREN }
-  | '+' { PLUS }
   | '-' { MINUS }
-  | '*' { MULT }
-  | '/' { DIV }
-  | '!' { BANG }
 
   | '=' { EQ }
-  | '<' { LT }
-  | '>' { GT }
 
   | ';' { SEMI }
   | '.' { DOT }
   | ',' { COMMA }
   | ";;" { DELIM }
 
-  | digit+ as s { INT(int_of_string s) }
-  | ['_' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9' '\'']* as i { IDENT(i) }
+  (* prefix operators *)
+  | ('!' | ['?' '~'] operator_char) operator_char * { PREFIX (lexeme lexbuf) }
+  (* infix operators *)
+  | '#' operator_char + { INFIX0 (lexeme lexbuf) }
+  | "**" operator_char * { INFIX1 (lexeme lexbuf) }
+  | ['*' '/' '%'] operator_char * { INFIX2 (lexeme lexbuf) }
+  | ['+' '-'] operator_char * { INFIX3 (lexeme lexbuf) }
+  | ['@' '-'] operator_char * { INFIX4 (lexeme lexbuf) }
+  | ['=' '<' '>' '|' '&' '$'] operator_char * { INFIX5 (lexeme lexbuf) }
+
+  | digit+ as s { INT (int_of_string s) }
+  | ['_' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9' '\'']* as i { IDENT (i) }
   | blank { token lexbuf }
 
   | eof  { raise Eof }

@@ -102,12 +102,7 @@ and print_aux env i o e =
 
   | Call (fn, x) -> esc i o fn; print_string " "; esc true o x
   | Raise e -> p i o (red "raise "); esc true o e
-  | Deref e -> p i o ("!"); esc true (o ^ indent) e
   | Seq (l, r) -> esc i o l; print_endline ";"; esc false o r
-  | UnaryOp (op, r) -> p i o (string_of_unary_op op ^ " "); esc true o r
-
-  | BinaryOp (op, l, r) ->
-      esc i o l; print_string (" " ^ string_of_binary_op op ^ " "); esc true o r
 
   | IfThenElse (cond, l, r) ->
       p i o (red "if "); esc true (o ^ indent) cond; p true o (red " then\n");

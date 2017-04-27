@@ -11,7 +11,7 @@ let rec run_prog (t_env, env) success error = function
   | e :: t ->
       let tp = Infer.type_of t_env e in
       print_endline <| "- : " ^ (Infer.string_of_type tp);
-      Interpreter.eval !env success error e;
+      (* Interpreter.eval !env success error e; *)
       run_prog (t_env, env) success error t
   | _ -> ()
 

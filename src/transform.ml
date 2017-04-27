@@ -17,26 +17,6 @@ let rec rem_exceptions = function
             [ Fun (PField n, e)
             ; Var "kE" ])) vl names e
 
-
-  | BinaryOp (op, a, b) ->
-      make_fn <| Call
-        ( rem_exceptions a
-        , Tuple
-            [ Fun (PField "a", Call
-                ( rem_exceptions b
-                , Tuple
-                    [ Fun (PField "b", Call (Var "k", BinaryOp (op, Var "a", Var "b")))
-                    ; Var "kE"]
-                ))
-            ; Var "kE"])
-
-  | UnaryOp (op, a) ->
-      make_fn <| Call
-        ( rem_exceptions a
-        , Tuple
-            [ Fun (PField "a", Call (Var "k", UnaryOp (op, Var "a")))
-            ; Var "kE"])
-
   (* here we get rid of the let statement, but we could keep it
    * as we have to for recursive definitions *)
   | LetIn (p, x, e) ->

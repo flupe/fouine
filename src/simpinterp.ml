@@ -59,55 +59,6 @@ let rec eval (renv : constant Env.t ref) expr =
   let rec aux env = function
     | Const c -> CConst c
 
-    | BinaryOp (op, l, r) -> begin
-        let lc = aux env l in
-        let rc = aux env r in
-        match lc, rc with
-        | CConst (Int lv), CConst (Int rv) -> begin
-            match op with
-            | Plus -> CConst (Int (lv + rv))
-            | Minus -> CConst (Int (lv - rv))
-            | Mult -> CConst (Int (lv * rv))
-            | Div -> CConst (Int (lv / rv))
-            | Mod -> CConst (Int (lv mod rv))
-            | Lt -> CConst (Bool (lv < rv))
-            | Gt -> CConst (Bool (lv > rv))
-            | Leq -> CConst (Bool (lv <= rv))
-            | Geq -> CConst (Bool (lv >= rv))
-            | Eq -> CConst (Bool (lv = rv))
-            | Neq -> CConst (Bool (lv <> rv))
-            | _ -> raise InterpretationError
-          end
-
-        | CConst (Bool lv), CConst (Bool rv) -> begin
-            match op with
-            | Or -> CConst (Bool (lv || rv))
-            | And -> CConst (Bool (lv && rv))
-            | Eq -> CConst (Bool (lv = rv))
-            | Neq -> CConst (Bool (lv <> rv))
-            | _ -> raise InterpretationError
-          end
-
-        | CRef r, _ ->
-            if op = SetRef then
-              (* references cannot change type *)
-              if equal_types rc !r then begin
-                r := rc;
-                CConst Unit
-              end else raise InterpretationError
-            else raise InterpretationError
-
-        | _ -> raise InterpretationError
-      end
-
-    | UnaryOp (op, e) -> begin
-        match aux env e with
-        | CConst (Int i) ->
-            if op = UMinus then CConst (Int (-i))
-            else raise InterpretationError
-        | _ -> raise InterpretationError
-      end
-
     | Var id ->
         if Env.mem id env then Env.find id env
         else raise InterpretationError
@@ -174,12 +125,6 @@ let rec eval (renv : constant Env.t ref) expr =
 
         | CMetaClosure f -> f (aux env x)
 
-        | _ -> raise InterpretationError
-      end
-
-    | Deref e -> begin
-        match aux env e with
-        | CRef r -> !r
         | _ -> raise InterpretationError
       end
 
