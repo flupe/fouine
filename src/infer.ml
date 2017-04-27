@@ -79,7 +79,7 @@ let rec prune = function
   | t -> t
 
 (* check whether a given type variable appears in some subtype of an unified upper one
- * throw exception if it does, returns unit otherwise *)
+ * throw exception if it does, return unit otherwise *)
 let rec occurs tvr = function
   | TVar tvr' when tvr == tvr' -> failwith "Recursive occurence of type."
   (* if both type variables are unbound, we grant ownership of the second
@@ -179,7 +179,7 @@ let rec create_type_pattern env level = function
   | PField id -> (id, generalize level (new_var level)) :: env
   | PTuple pl -> List.fold_left (fun env p -> create_type_pattern env level p) env pl
 
-let rec type_of env expr = 
+let rec type_of renv expr = 
   reset ();
   let rec infer env level = function
     | Var id -> instanciate level (List.assoc id env)
@@ -205,6 +205,11 @@ let rec type_of env expr =
     | LetIn (p, v, e) ->
         let tv = infer env (level + 1) v in
         infer (match_type level env tv p) level e
+
+    | Let (p, v) ->
+        let t_v = infer env (level + 1) v in
+        renv := match_type level env t_v p;
+        t_v
 
     | IfThenElse (c, a, b) ->
         let t_c = infer env level c in
@@ -264,4 +269,4 @@ let rec type_of env expr =
         t
 
     | _ -> TConst "unit"
-  in prune (infer env 0 expr)
+  in prune (infer !renv 0 expr)

@@ -7,12 +7,12 @@ let parse_input () =
   Lexing.from_channel stdin
   |> Parser.main Lexer.token
 
-let rec run_prog env success error = function
+let rec run_prog (t_env, env) success error = function
   | e :: t ->
-      let tp = Infer.type_of Infer.base_env e in
+      let tp = Infer.type_of t_env e in
       print_endline <| "- : " ^ (Infer.string_of_type tp);
       Interpreter.eval !env success error e;
-      run_prog env success error t
+      run_prog (t_env, env) success error t
   | _ -> ()
 
 let () =
@@ -104,6 +104,7 @@ let () =
     (* Start an interpretation REPL. *)
     else begin *)
     let env = ref Interpreter.base in
+    let t_env = ref Infer.base_env in
 
     let error x =
       print_endline <| err "[ERROR]" ^ " Uncaught exception.";
@@ -145,7 +146,7 @@ let () =
 
         else begin
           try
-            run_prog env success error prog
+            run_prog (t_env, env) success error prog
           with Interpreter.InterpretationError ->
             print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
         end
