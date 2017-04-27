@@ -22,6 +22,8 @@ let rec string_of_type = function
   | CArray _ -> cyan "int array"
   | CTuple tl ->
       "(" ^ (String.concat " * " <| List.map string_of_type tl) ^ ")"
+  | CList [] -> cyan "'a" ^ " list"
+  | CList (a :: _) -> Printf.sprintf "%s list" (string_of_type a)
 
 let print_constant_with f = function
   | Int k -> f (green <| string_of_int k)
@@ -72,12 +74,19 @@ and print_value_aux env i o e =
         if i <> 0 then pr ", ";
         print_value_aux env true (o ^ indent) v) vl;
       pr ")";
+  | CList vl ->
+      p i o "[";
+      List.iteri (fun i v ->
+        if i <> 0 then pr "; ";
+        print_value_aux env true (o ^ indent) v) vl;
+      pr "]";
 
 and esc env inline offset t =
   match t with
   | Const _
   | Var _
-  | Tuple _ ->
+  | Tuple _
+  | Empty ->
       print_aux env inline offset t
   | _ ->
       p inline offset "(";
@@ -89,6 +98,7 @@ and print_aux env i o e =
   let print_aux = print_aux env in
   let esc = esc env in
   match e with
+  | Empty -> p i o "[]"
   | Const c -> 
       print_constant_with (p i o) c
 

@@ -211,10 +211,14 @@ let rec create_type_pattern env level = function
 let rec type_of renv expr = 
   reset ();
   let rec infer env level = function
+    | Empty -> TList (new_var level)
+
     | Var id ->
         if List.mem_assoc id env then instanciate level (List.assoc id env)
         else failwith ("Unbound value " ^ id)
+
     | Const c -> type_of_const c
+
     | Tuple l -> TTuple (List.map (infer env level) l)
 
     | LetIn (p, v, e) ->

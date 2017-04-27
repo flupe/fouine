@@ -32,16 +32,19 @@ type constant
   | CClosure of Ast.pattern * Ast.t * constant Env.t
   | CRec of Ast.identifier * Ast.pattern  * Ast.t * constant Env.t
   | CArray of int array
+  | CList of constant list
   | CTuple of constant list
 
 let rec equal_types a b =
   match a, b with
   | CClosure _, CClosure _
   | CRec _, CRec _
+  | CList [], CList []
   | CArray _, CArray _ -> true
   | CRef ra, CRef rb -> equal_types !ra !rb
   | CTuple l1, CTuple l2 ->
       List.for_all2 equal_types l1 l2
+  | CList (a :: _), CList (b :: _) -> equal_types a b
   | CConst a, CConst b -> begin match a, b with
     | Int _, Int _
     | Bool _, Bool _

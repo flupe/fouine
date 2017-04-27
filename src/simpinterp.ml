@@ -7,27 +7,7 @@ exception TypeError
 
 (* the default environment
  * contains our builtin functions *)
-let base = Env.empty
-  |> Env.add "ref"   (CMetaClosure (fun x -> CRef (ref x)))
-  |> Env.add "not"   (CMetaClosure (fun x ->
-       match x with
-       | CConst (Bool b) -> CConst (Bool (not b))
-       | _ -> raise TypeError
-     ))
-  |> Env.add "prInt" (CMetaClosure (fun x ->
-       match x with
-       | CConst (Int i) -> print_endline <| string_of_int i; x
-       | _ -> raise TypeError
-     ))
-  |> Env.add "prOut" (CMetaClosure (fun x -> 
-       Beautify.print_value x;
-       CConst Unit
-     ))
-  |> Env.add "aMake" (CMetaClosure (fun n ->
-       match n with
-       | CConst (Int n) when n >= 0 -> CArray (Array.make n 0)
-       | _ -> raise TypeError
-     ))
+let base = Interpreter.base
 
 let rec match_pattern env (a : pattern) (b : constant) =
   let rec aux penv a b = match a, b with
@@ -57,6 +37,7 @@ and match_list env al bl =
 
 let rec eval (renv : constant Env.t ref) expr =
   let rec aux env = function
+    | Empty -> CList []
     | Const c -> CConst c
 
     | Var id ->

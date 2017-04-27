@@ -17,7 +17,7 @@
 %token <string> INFIX5
 
 %token <int> INT
-%token LPAREN RPAREN BEGIN END SEMI
+%token LPAREN RPAREN LBRACKET RBRACKET BEGIN END SEMI
 %token LET IN IF THEN ELSE DELIM FUN RARROW REC
 %token MINUS MOD EQ
 %token UNDERSCORE COMMA
@@ -31,14 +31,15 @@
 
 %type <Ast.t list> main
 
-%nonassoc IN
+(* %nonassoc IN *)
+%nonassoc below_SEMI
 %nonassoc SEMI
 %nonassoc NOELSE
 %nonassoc ELSE
 %right SETREF LARROW
 %nonassoc below_COMMA
 %left COMMA
-%right RARROW
+(* %right RARROW *)
 %left EQ INFIX5    (* =... <... >... |... &... $... != *)
 %right INFIX4      (* @... ^... *)
 %right CONS
@@ -70,7 +71,7 @@ constant:
   | unit    { $1 }
 
 array_access:
-  | enclosed DOT LPAREN expr RPAREN { $1, $4 }
+  | enclosed DOT LPAREN seq_expr RPAREN { $1, $4 }
 
 pattern:
   | l = separated_nonempty_list(COMMA, pattern_enclosed) {
@@ -106,9 +107,22 @@ ident:
   | IDENT { $1 }
   | LPAREN operator RPAREN { $2 }
 
+seq_expr:
+  | expr %prec below_SEMI { $1 }
+  (* | expr SEMI { Seq ($1, Const Unit) } *)
+  | expr SEMI seq_expr { Seq ($1, $3) }
+
+semi_expr_list:
+  | expr { [$1] }
+  | semi_expr_list SEMI expr { $3 :: $1 }
+
 enclosed:
-  | BEGIN expr END { $2 }
-  | LPAREN expr RPAREN { $2 }
+  | BEGIN seq_expr END { $2 }
+  | LPAREN seq_expr RPAREN { $2 }
+  | LBRACKET RBRACKET { Empty }
+  | LBRACKET semi_expr_list RBRACKET {
+      List.fold_left (fun e x -> mk_infix x "::" e) Empty $2
+    }
   | ident { Var $1 }
   | PREFIX enclosed { mk_prefix $1 $2 }
   | constant { Const $1 }
@@ -122,18 +136,18 @@ main:
 
 global:
   | global_lets { $1 }
-  | expr { [ $1 ] }
+  | seq_expr { [ $1 ] }
 
 global_lets:
   | { [] }
 
-  | LET pattern EQ expr global_lets { Let ($2, $4) :: $5 }
+  | LET pattern EQ seq_expr global_lets { Let ($2, $4) :: $5 }
 
-  | LET ident pattern_list EQ expr global_lets {
+  | LET ident pattern_list EQ seq_expr global_lets {
       Let (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5) :: $6
     }
 
-  | LET REC ident pattern_list EQ expr global_lets {
+  | LET REC ident pattern_list EQ seq_expr global_lets {
       LetRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6) :: $7
     }
 
@@ -143,30 +157,29 @@ comma_list:
 
 expr:
   | comma_list %prec below_COMMA { Tuple (List.rev $1) }
-  | expr SEMI expr  { Seq ($1, $3) }
 
   /* function calls */
   | args = enclosed+ {
       List.fold_left (fun e a -> Call(e, a)) (hd args) (tl args)
     }
 
-  | LET pattern EQ expr IN expr { LetIn ($2, $4, $6) }
+  | LET pattern EQ seq_expr IN seq_expr { LetIn ($2, $4, $6) }
 
-  | LET ident pattern_list EQ expr IN expr {
+  | LET ident pattern_list EQ seq_expr IN seq_expr {
       LetIn (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5, $7)
     }
 
-  | LET REC ident pattern_list EQ expr IN expr {
+  | LET REC ident pattern_list EQ seq_expr IN seq_expr {
       LetRecIn ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6, $8)
     }
 
-  | FUN pattern_list RARROW expr {
+  | FUN pattern_list RARROW seq_expr {
       List.fold_right (fun x e -> Fun (x, e)) $2 $4
     }
 
   | IF expr THEN expr ELSE expr { IfThenElse ($2, $4, $6) }
   | IF expr THEN expr %prec NOELSE { IfThenElse ($2, $4, Const Unit) }
-  | TRY expr WITH E pattern RARROW expr { TryWith ($2, $5, $7) }
+  | TRY seq_expr WITH E pattern RARROW seq_expr { TryWith ($2, $5, $7) }
   | RAISE enclosed { Raise $2 }
 
   | array_access LARROW expr {

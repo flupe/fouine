@@ -12,10 +12,12 @@ type pattern =
   | PField of identifier
   | PTuple  of pattern list
 
-type t
-  = Var  of identifier
+type t =
+  | Empty
+  | Var  of identifier
   | Const of constant
   | Tuple of t list
+
 
   | Let of pattern * t
   | LetRec of identifier * t

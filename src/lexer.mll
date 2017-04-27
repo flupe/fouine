@@ -34,6 +34,8 @@ rule token = parse
 
   | '(' { LPAREN }
   | ')' { RPAREN }
+  | '[' { LBRACKET }
+  | ']' { RBRACKET }
   | '-' { MINUS }
 
   | '=' { EQ }
