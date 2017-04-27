@@ -29,6 +29,7 @@ rule token = parse
   | "->" { RARROW }
   | "<-" { LARROW }
   | ":=" { SETREF }
+  | "::" { CONS }
   | '_' { UNDERSCORE }
 
   | '(' { LPAREN }

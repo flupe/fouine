@@ -5,37 +5,63 @@ open Shared
 exception InterpretationError
 exception TypeError
 
+let meta x = CMetaClosure x
+
+let int_binop op =
+  meta @@ function
+  | CConst (Int a) -> (meta @@ function
+     | CConst (Int b) -> CConst (Int (op a b))
+     | _ -> raise TypeError)
+  | _ -> raise TypeError
+
+let gen_bool_binop op =
+  meta (fun a -> meta (fun b -> CConst (Bool (op a b))))
+
+let bool_binop op =
+  meta @@ function
+  | CConst (Bool a) -> (meta @@ function
+     | CConst (Bool b) -> CConst (Bool (op a b))
+     | _ -> raise TypeError)
+  | _ -> raise TypeError
+
 (* the default environment
  * contains our builtin functions *)
-let base = Env.empty
-  |> Env.add "ref"   (CMetaClosure (fun x -> CRef (ref x)))
-  |> Env.add "not"   (CMetaClosure (fun x ->
-       match x with
-       | CConst (Bool b) -> CConst (Bool (not b))
-       | _ -> raise TypeError
-     ))
-  |> Env.add "prInt" (CMetaClosure (fun x ->
-       match x with
-       | CConst (Int i) -> print_endline <| string_of_int i; x
-       | _ -> raise TypeError
-     ))
-  |> Env.add "prOut" (CMetaClosure (fun x -> 
-       Beautify.print_value x;
-       CConst Unit
-     ))
-  |> Env.add "aMake" (CMetaClosure (fun n ->
-       match n with
-       | CConst (Int n) when n >= 0 -> CArray (Array.make n 0)
-       | _ -> raise TypeError
-     ))
+let base =
+  [ "ref", meta (fun x -> CRef (ref x))
+  ; "incr", meta (function
+      | CRef ({ contents = CConst (Int i)} as r) -> r := CConst (Int (i + 1)); CConst Unit
+      | _ -> raise TypeError)
+  ; "decr", meta (function
+      | CRef ({ contents = CConst (Int i)} as r) -> r := CConst (Int (i - 1)); CConst Unit
+      | _ -> raise TypeError)
+  ; "not", meta (function CConst (Bool b) -> CConst (Bool (not b)) | _ -> raise TypeError)
+  ; "prInt", meta (function CConst (Int i) as x -> print_endline <| string_of_int i; x | _ -> raise TypeError)
+  ; "prOut", meta (fun x -> Beautify.print_value x; CConst Unit)
+  ; "aMake", meta (function CConst (Int n) when n >= 0 -> CArray (Array.make n 0) | _ -> raise TypeError)
 
-  (* operators *)
-  |> Env.add "!" (CMetaClosure (fun n ->
-       match n with
-       | CRef x -> !x
-       | _ -> raise TypeError
-     ))
-  |> Env.add "<" (CMetaClosure (fun a -> CMetaClosure (fun b -> CConst (Bool (a < b)))))
+  ; "!", meta (function CRef x -> !x | _ -> raise TypeError)
+  ; ":=", meta (function 
+      | CRef r -> meta (fun x -> if equal_types x !r then (r := x; CConst Unit) else raise TypeError)
+      | _ -> raise TypeError)
+  ; "+", int_binop (+)
+  ; "-", int_binop (-)
+  ; "~-", meta (function CConst (Int x) -> CConst (Int ~-x) | _ -> raise TypeError)
+  ; "*", int_binop ( * )
+  ; "/", int_binop (/)
+  ; "mod", int_binop (mod)
+  ; "<", gen_bool_binop (<)
+  ; "<=", gen_bool_binop (<=)
+  ; ">", gen_bool_binop (>)
+  ; ">=", gen_bool_binop (>=)
+  ; "=", gen_bool_binop (=)
+  ; "<>", gen_bool_binop (<>)
+  ; "&&", bool_binop (&&)
+  ; "||", bool_binop (||)
+  ; "|>", meta (fun x -> meta (function CMetaClosure f -> f x | _ -> raise TypeError))
+  ; "@@", meta (function CMetaClosure f -> meta (fun x -> f x) | _ -> raise TypeError)
+ 
+  ] |> List.fold_left (fun e (id, v) -> Env.add id v e) Env.empty
+
 
 let rec match_pattern env (a : pattern) (b : constant) =
   let rec aux penv a b = match a, b with

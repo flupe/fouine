@@ -27,6 +27,8 @@ let infix_bool = TArrow (TGeneric "a", TArrow (TGeneric "a", TBool))
 
 let base_env : env = 
   [ "ref", TArrow (TGeneric "a", TRef (TGeneric "a"))
+  ; "incr", TArrow (TRef TInt, TUnit)
+  ; "decr", TArrow (TRef TInt, TUnit)
   ; "not", TArrow (TBool, TBool)
   ; "prInt", TArrow (TInt, TInt)
   ; "prOut", TArrow (TGeneric "a", TUnit)
@@ -50,6 +52,11 @@ let base_env : env =
   ; "=", infix_bool
   ; "&&", TArrow (TBool, TArrow (TBool, TBool))
   ; "||", TArrow (TBool, TArrow (TBool, TBool))
+
+  ; "::", TArrow (TGeneric "a", TArrow (TList (TGeneric "a"), TList (TGeneric "a")))
+  ; "@", TArrow (TList (TGeneric "a"), TArrow (TList (TGeneric "a"), TList (TGeneric "a")))
+  ; "|>", TArrow (TGeneric "a", TArrow (TArrow (TGeneric "a", TGeneric "b"), TGeneric "b" ))
+  ; "@@", TArrow (TArrow (TGeneric "a", TGeneric "b"), TArrow (TGeneric "a", TGeneric "b" ))
   ]
 
 let count = ref 0
@@ -80,7 +87,7 @@ let rec string_of_type ?clean:(c = false) t =
         | TList t -> Printf.sprintf "%s list" (aux true t)
         | TRef t -> Printf.sprintf "%s ref" (aux true t)
         | TArray t -> Printf.sprintf "%s array" (aux true t)
-        | TArrow (ta, tb) -> Printf.sprintf "%s -> %s" (aux false ta) (aux false tb)
+        | TArrow (ta, tb) -> Printf.sprintf "%s -> %s" (aux true ta) (aux false tb)
         | TTuple tl -> String.concat " * " (List.map (aux true) tl)
         | _ -> ""
       end
@@ -206,7 +213,7 @@ let rec type_of renv expr =
   let rec infer env level = function
     | Var id ->
         if List.mem_assoc id env then instanciate level (List.assoc id env)
-        else failwith ("Unbound variable " ^ id)
+        else failwith ("Unbound value " ^ id)
     | Const c -> type_of_const c
     | Tuple l -> TTuple (List.map (infer env level) l)
 
