@@ -62,7 +62,7 @@ let rec string_of_type t =
         | TList t -> Printf.sprintf "%s list" (aux true t)
         | TRef t -> Printf.sprintf "%s ref" (aux true t)
         | TArray t -> Printf.sprintf "%s array" (aux true t)
-        | TArrow (ta, tb) -> Printf.sprintf "%s -> %s" (aux true ta) (aux true tb)
+        | TArrow (ta, tb) -> Printf.sprintf "%s -> %s" (aux false ta) (aux false tb)
         | TTuple tl -> String.concat " * " (List.map (aux true) tl)
         | _ -> ""
       end
@@ -152,7 +152,7 @@ let instanciate level t =
     | TTuple tl ->
         let step (tl, mem) t = let (t, mem) = aux mem t in (t :: tl, mem) in
         let (tl, mem) = List.fold_left step ([], mem) tl in
-        TTuple tl, mem
+        TTuple (List.rev tl), mem
     | t -> t, mem
   in fst (aux [] t)
 
@@ -160,6 +160,17 @@ let type_of_const = function
   | Int _ -> TConst "int"
   | Bool _ -> TConst "bool"
   | Unit -> TConst "unit"
+
+let rec match_type level env tp = function
+  | PAll -> env
+  | PConst c ->
+      unify (type_of_const c) tp;
+      env
+  (* TODO: check multiple occurences *)
+  | PField id -> (id, generalize level tp) :: env
+  | PTuple pl ->
+      let tl = List.map (fun _ -> new_var level) pl in unify (TTuple tl) tp;
+      List.fold_left2 (fun env p t -> match_type level env t p) env pl tl
 
 let rec type_of env expr = 
   reset ();
@@ -186,13 +197,13 @@ let rec type_of env expr =
 
     (* TODO: handle pattern matching. it's not difficult but i'm just tired rn *)
 
-    | LetIn (PField id, v, e) ->
+    | LetIn (p, v, e) ->
         let tv = infer env (level + 1) v in
-        infer ((id, generalize level tv) :: env) level e
+        infer (match_type level env tv p) level e
 
-    | Fun (PField x, fn) ->
+    | Fun (p, fn) ->
         let t_var = new_var level in
-        let t_ret = infer ((x, t_var) :: env) level fn in
+        let t_ret = infer (match_type level env t_var p) level fn in
         TArrow (t_var, t_ret)
 
     | Call (fn, x) ->
