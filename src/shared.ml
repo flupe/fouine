@@ -2,6 +2,11 @@ let (<|) = (@@)
 
 open Ast
 
+exception TypeError
+exception InterpretationError
+exception ExecutionError
+exception MatchError
+
 module Env = Map.Make (struct
   type t = identifier
   let compare = Pervasives.compare
@@ -39,17 +44,17 @@ let rec match_pattern env (a : pattern) (b : value) =
   match a, b with
   | PAll, _ -> env
   | PField id, _ ->
-      if Env.mem id env then failwith "matching error"
+      if Env.mem id env then raise MatchError
       else Env.add id b env
   | PConst p, CConst c when p = c -> env
   | PTuple pl, CTuple cl -> match_list env pl cl
-  | _ -> failwith "matching error"
+  | _ -> raise MatchError
 
 and match_list env al bl = 
   match al, bl with
   | p :: pt, v :: vt -> match_list (match_pattern env p v) pt vt
   | [], [] -> env
-  | _ -> failwith "matching error"
+  | _ -> raise MatchError
 
 let rec equal_types a b =
   match a, b with
