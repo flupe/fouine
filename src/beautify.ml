@@ -17,9 +17,6 @@ let rec string_of_type = function
     | Unit -> magenta "unit"
     end
   | CRef r -> string_of_type !r ^ red " ref"
-  | CClosure _ -> blue "fun"
-  | CRec _ -> blue "rec fun"
-  | CMetaClosure _ -> red "builtin"
   | CArray _ -> cyan "int array"
   | CTuple tl ->
       "(" ^ (String.concat " * " <| List.map string_of_type tl) ^ ")"
@@ -34,14 +31,16 @@ let rec string_of_value = function
     | Unit -> magenta "()"
     end
   | CRef r -> Printf.sprintf "{ contents = %s }" (string_of_value !r)
-  | CClosure _
-  | CRec _ 
-  | CMetaClosure _ -> red "<fun>"
   | CArray _ -> cyan "int array"
   | CTuple vl ->
       "(" ^ (String.concat ", " (List.map string_of_value vl)) ^ ")"
   | CList vl -> 
       "[" ^ (String.concat "; " (List.map string_of_value vl)) ^ "]"
+  | CMetaClosure _
+  | CClosure _
+  | CRec _
+  | CBClosure _
+  | CBRec _ -> red "<fun>"
 
 let print_constant_with f = function
   | Int k -> f (green <| string_of_int k)
@@ -68,16 +67,6 @@ and print_value_aux env i o e =
   match e with
   | CConst c -> print_constant c
   | CRef r -> pr "-"
-  | CClosure (pattern, e, env) ->
-      pr (blue "fun ");
-      print_pattern pattern;
-      pr " -> ";
-      print_aux env true (o ^ indent) e
-  | CRec (name, pattern, e, _) ->
-      pr (blue "fun ");
-      print_pattern pattern;
-      pr " -> ";
-      print_aux env true (o ^ indent) e
   | CArray a ->
       let rec aux acc = function
         | [x] -> acc ^ (green <| string_of_int x)
@@ -85,7 +74,6 @@ and print_value_aux env i o e =
         | _ -> acc
       in let values = aux "" (Array.to_list a)
       in pr <| "[| " ^ values ^ " |]"
-  | CMetaClosure _ -> pr "-"
   | CTuple vl ->
       p i o "(";
       List.iteri (fun i v ->
@@ -98,6 +86,19 @@ and print_value_aux env i o e =
         if i <> 0 then pr "; ";
         print_value_aux env true (o ^ indent) v) vl;
       pr "]";
+  | CClosure (pattern, e, env) ->
+      pr (blue "fun ");
+      print_pattern pattern;
+      pr " -> ";
+      print_aux env true (o ^ indent) e
+  | CRec (name, pattern, e, _) ->
+      pr (blue "fun ");
+      print_pattern pattern;
+      pr " -> ";
+      print_aux env true (o ^ indent) e
+  | CMetaClosure _
+  | CBClosure _
+  | CBRec _ -> pr "-"
 
 and esc env inline offset t =
   match t with

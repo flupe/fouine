@@ -5,6 +5,7 @@ open Bytecode
 
 exception TypeError
 exception MatchError
+exception ExecutionError
 exception InterpretationError
 
 module Env = Map.Make (struct
@@ -12,33 +13,19 @@ module Env = Map.Make (struct
   let compare = Pervasives.compare
 end)
 
-(*module IncrEnv = struct
-  type 'a t = 'a list Env.t
-
-  let empty = Env.empty
-
-  let find x (e : 'a t) =
-    List.hd (Env.find x e)
-
-  let add x (v : 'a) (e : 'a t) =
-    try
-      Env.add x (v :: (Env.find x e)) e
-    with _ ->
-      Env.add x [v] e
-
-  let remove x (e : 'a t) =
-    Env.add x (List.tl (Env.find x e)) e
-end*)
-
 type value
   = CConst of Ast.constant
   | CRef of value ref
-  | CMetaClosure of (value -> value)
-  | CClosure of Ast.pattern * Ast.t * value Env.t
-  | CRec of Ast.identifier * Ast.pattern  * Ast.t * value Env.t
   | CArray of int array
   | CList of value list
   | CTuple of value list
+  | CMetaClosure of (value -> value)
+
+  | CClosure of Ast.pattern * Ast.t * value Env.t
+  | CRec of Ast.identifier * Ast.pattern  * Ast.t * value Env.t
+
+  | CBClosure of Ast.pattern * bytecode * value Env.t
+  | CBRec of Ast.identifier * Ast.pattern  * bytecode * value Env.t
 
 let rec match_pattern_aux env (a : pattern) (b : value) =
   match a, b with
@@ -75,7 +62,6 @@ let rec equal_types a b =
     end
   | _ -> false
 
- 
 let meta x = CMetaClosure x
 
 let int_binop op =
@@ -155,7 +141,6 @@ module type Interp = sig
   (* bind a new value to some identifier *)
   val bind : id -> value -> unit
 end
-
 
 let rec match_pattern_aux env a b =
   match a, b with

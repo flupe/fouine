@@ -1,6 +1,8 @@
 open Ast
 open Print
 open Shared
+open Beautify
+open Secd
 
 let parse_input () =
   Lexing.from_channel stdin
@@ -135,7 +137,8 @@ let () =
 
     (* If we do the transformation to get rid of exceptions,
      * we need to add default continuations to the outer scope *)
-    (* if !no_exceptions then
+    (*
+    if !no_exceptions then
       env := !env
         |> Env.add "k" (CMetaClosure (fun x -> print_value x; x))
         |> Env.add "kE" (CMetaClosure (fun x -> error x; x));
@@ -150,31 +153,32 @@ let () =
 
         (* if !debug then List.iter print_ast prog; *)
 
-        (* 
+        (*
         if !no_exceptions then begin
           let prog = prog
             |> List.map Transform.rem_exceptions
             |> List.map (fun x -> Call (x, Tuple [ Var "k"; Var "kE" ]))
           in
+          *)
 
-          if !debug then List.iter print_ast prog;
+          (* if !debug then List.iter print_ast prog; *)
 
-          try
+(*          try
             List.iter (fun x -> ignore <| Simpinterp.eval env x) prog
           with Simpinterp.InterpretationError ->
             print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
         end
 
-        else begin *)
+        else begin
+          *)
           try
             run_prog prog
           with InterpretationError ->
-            print_endline <| "[ERROR]" ^ " The interpreter ended prematurely.";
-        (* end *)
+            print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
 
       (* with _ ->
         print_endline <| err "[ERROR]" ^ " Syntax error."; *)
-    done
+    done 
     (*
   end
   *)
