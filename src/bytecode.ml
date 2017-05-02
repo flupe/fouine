@@ -5,27 +5,21 @@ type bytecode =
   instruction list
 
 and instruction
-  = UnitConst
-  | IntConst of int
-  | BoolConst of bool
-  | RefConst
-  | Deref
-  | ArrayConst
-  | ArraySet
-  | ArrayRead
-  | UnOp of unary_op
-  | BinOp of binary_op
-  | Access of identifier
-  | Encap of bytecode
-  | Closure of identifier * bytecode
-  | RecClosure of identifier * identifier * bytecode
-  | Let of identifier
-  | EndLet of identifier
-  | Apply
-  | Branch
-  | Print
-  | Return
-
+  = BConst of const
+  | BArraySet
+  | BArrayRead
+  | BAccess of identifier
+  | BEncap of bytecode
+  | BTry of pattern
+  | BRaise
+  | BClosure of pattern * bytecode
+  | BRecClosure of identifier * pattern * bytecode
+  | BLet of pattern
+  | BEndLet of pattern
+  | BApply
+  | BBranch
+  | BReturn
+(*
 (* string_of_instruction : instruction -> string *)
 let rec string_of_instruction = function
   | UnitConst -> red "UnitConst"
@@ -73,3 +67,4 @@ and string_of_bytecode = function
   | h :: [] ->
       string_of_instruction h
   | [] -> ""
+*)
