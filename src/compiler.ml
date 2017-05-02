@@ -44,13 +44,13 @@ let compile e =
         [BRecClosure (id, p, (aux a') @ [Return])] @
         [BLet (PField id)] @
         aux b @
-        [BEndLet (PField id)]
+        [BEndLet]
 
     | Let (p, a, b) ->
         aux a @
         [BLet p] @
         aux b @
-        [BEndLet p]
+        [BEndLet]
 
     | Fun (p, a) ->
         [BClosure (p, (aux a) @ [BReturn])]

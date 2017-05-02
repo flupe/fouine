@@ -2,37 +2,18 @@ open Ast
 open Print
 open Shared
 open Beautify
+open Secd
 
 let parse_input () =
   Lexing.from_channel stdin
   |> Parser.main Lexer.token
 
-let expr_success t v =
-  Printf.printf "- : %s = %s\n" (Infer.string_of_type t) (Beautify.string_of_value v)
-
-let decl_success t_env p t e =
-  let env' = match_pattern p e in
-  let t_env' = Infer.match_type 0 [] t p in
-  Env.iter (fun name v ->
-    Printf.printf "val %s : %s = %s\n" name (Infer.string_of_type <| List.assoc name t_env') (Beautify.string_of_value v)) env';
-  Interpreter.append env';
-  t_env := t_env' @ !t_env
-
-let error x = 
-  print_endline (err "[ERROR]" ^ " Uncaught exception.")
-
-let exec_stmt t_env = function
-  | Expr e ->
-      let t = Infer.type_of !t_env e in
-      Interpreter.exec (expr_success t) error e
-  | Decl (p, e) -> 
-      let t = Infer.type_of !t_env e in
-      Interpreter.exec (decl_success t_env p t) error e
-
-let rec run_prog envs = function
-  | s :: t ->
-      exec_stmt envs s;
-      run_prog envs t
+let rec run_prog (t_env, env) success error = function
+  | e :: t ->
+      let tp = Infer.type_of t_env e in
+      print_endline <| "- : " ^ (Infer.string_of_type tp);
+      Interpreter.eval !env success error e;
+      run_prog (t_env, env) success error t
   | _ -> ()
 
 let () =
@@ -123,15 +104,23 @@ let () =
 
     (* Start an interpretation REPL. *)
     else begin *)
-    let type_env = ref Infer.base_env in
+    let env = ref base in
+    let t_env = ref Infer.base_env in
+
+    let error x =
+      print_endline <| err "[ERROR]" ^ " Uncaught exception.";
+      print_value x in
+
+    let success e x =
+      env := e;
+      print_value x in
 
     (* If we do the transformation to get rid of exceptions,
      * we need to add default continuations to the outer scope *)
-    (* if !no_exceptions then
+    if !no_exceptions then
       env := !env
         |> Env.add "k" (CMetaClosure (fun x -> print_value x; x))
         |> Env.add "kE" (CMetaClosure (fun x -> error x; x));
-        *)
 
     while true do
       print_string <| bold ">>> ";
@@ -140,9 +129,8 @@ let () =
       (* try *)
         let prog = parse_input () in
 
-        (* if !debug then List.iter print_ast prog; *)
+        if !debug then List.iter print_ast prog;
 
-        (* 
         if !no_exceptions then begin
           let prog = prog
             |> List.map Transform.rem_exceptions
@@ -151,18 +139,18 @@ let () =
 
           if !debug then List.iter print_ast prog;
 
-          try
+(*          try
             List.iter (fun x -> ignore <| Simpinterp.eval env x) prog
           with Simpinterp.InterpretationError ->
-            print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
+            print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";*)
         end
 
-        else begin *)
+        else begin
           try
-            run_prog type_env prog
-          with InterpretationError ->
+            run_prog (t_env, env) success error prog
+          with Interpreter.InterpretationError ->
             print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
-        (* end *)
+        end
 
       (* with _ ->
         print_endline <| err "[ERROR]" ^ " Syntax error."; *)

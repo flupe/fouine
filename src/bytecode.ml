@@ -15,7 +15,7 @@ and instruction
   | BClosure of pattern * bytecode
   | BRecClosure of identifier * pattern * bytecode
   | BLet of pattern
-  | BEndLet of pattern
+  | BEndLet
   | BApply
   | BBranch
   | BReturn

@@ -3,157 +3,88 @@ open Print
 open Shared
 open Bytecode
 
-exception TypeError
-exception ExecutionError
-
-type value
-  = UnitVal
-  | IntVal of int
-  | BoolVal of bool
-  | RefVal of value ref
-  | ArrayVal of int array
-  | EnvVal of value IncrEnv.t
-  | EncapVal of bytecode
-  | ClosureVal of identifier * bytecode * value IncrEnv.t
-  | RecClosureVal of identifier * identifier * bytecode * value IncrEnv.t
-  | MetaClosureVal of (value -> value)
-
-let rec constant_of_value = function
-  | UnitVal          -> CUnit
-  | IntVal i         -> CInt i
-  | BoolVal b        -> CBool b
-  | RefVal r         -> CRef (ref (constant_of_value !r))
-  | ArrayVal a       -> CArray a
-  | MetaClosureVal f -> CMetaClosure (fun _ -> CUnit)
-  | _ -> raise TypeError
-
-let compute_unary op v = match op, v with
-  | UMinus, IntVal i -> IntVal ((-1) * i)
-  | _ -> raise TypeError
-
-let compute_binary op v v' = match op, v, v' with
-  | Plus,   IntVal i,  IntVal j  -> IntVal (i + j)
-  | Minus,  IntVal i,  IntVal j  -> IntVal (i - j)
-  | Mult,   IntVal i,  IntVal j  -> IntVal (i * j)
-  | Div,    IntVal i,  IntVal j  -> IntVal (i / j)
-  | Mod,    IntVal i,  IntVal j  -> IntVal (i mod j)
-  | Or,     BoolVal i, BoolVal j -> BoolVal (i || j)
-  | And,    BoolVal i, BoolVal j -> BoolVal (i && j)
-  | Lt,     IntVal i,  IntVal j  -> BoolVal (i < j)
-  | Gt,     IntVal i,  IntVal j  -> BoolVal (i > j)
-  | Leq,    IntVal i,  IntVal j  -> BoolVal (i <= j)
-  | Geq,    IntVal i,  IntVal j  -> BoolVal (i >= j)
-  | Eq,     IntVal i,  IntVal j  -> BoolVal (i = j)
-  | Eq,     BoolVal i, BoolVal j -> BoolVal (i = j)
-  | Neq,    IntVal i,  IntVal j  -> BoolVal (i <> j)
-  | Neq,    BoolVal i, BoolVal j -> BoolVal (i <> j)
-  | SetRef, RefVal r,  _         -> r := v'; UnitVal
-  | _ -> raise TypeError
-
-(** A base environment which contains meta-closures to support "special"
-    operations like `ref`, `not`, `prInt` or `aMake`. *)
-let base =
-  IncrEnv.empty
-
-  |> IncrEnv.add "ref" 
-      (MetaClosureVal (fun x -> RefVal (ref x)))
-
-  |> IncrEnv.add "not" 
-      (MetaClosureVal (fun x -> match x with
-      | BoolVal b -> BoolVal (not b)
-      | _ -> raise TypeError))
-
-  |> IncrEnv.add "prInt" 
-      (MetaClosureVal (fun x -> match x with
-      | IntVal i ->
-          print_int i;
-          print_newline ();
-          IntVal i
-      | _ -> raise TypeError))
-
-  |> IncrEnv.add "prOut" 
-      (MetaClosureVal (fun x ->
-      constant_of_value x |> Beautify.print_constant;
-      UnitVal))
-
-  |> IncrEnv.add "aMake" 
-      (MetaClosureVal (fun x -> match x with
-      | IntVal i when i >= 0 -> ArrayVal (Array.make i 0)
-      | _ -> raise TypeError))
+type stack_value
+  = SVal of value
+  | SEnv of value Env.t
+  | SEncap of bytecode
 
 (** run : Bytecode.bytecode -> unit
   
   Runs a given SECD bytecode, as specified in the `Bytecode` module.
-  Raises an ExecutionError if anything goes wrong. *)
+  Raises an ExecutionError if anything goes wrong.
+
+  The machine uses the following stacks:
+  - A code stack, of type `bytecode`.
+  - An environment stack, of type `value Env.t list`.
+  - A value stack, of type `stack_value list`.
+  - An exception handler stack, of type `(pattern * bytecode * value Ent.t) list`.
+
+    Each item in the stack is the combination of a pattern that the exception must
+    match in order to be catched, of code that will be executed by the machine if
+    the exception is catched, and the environment when the handler was defined. *)
 let run code =
   let rec aux = function
-    | UnitConst :: c, e, s ->
-        aux (c, e, UnitVal :: s)
+    | BConst c' :: c, e, s ->
+        aux (c, e, (SVal (CConst c')) :: s)
 
-    | IntConst i :: c, e, s ->
-        aux (c, e, IntVal i :: s)
-
-    | BoolConst b :: c, e, s ->
-        aux (c, e, BoolVal b :: s)
-
-    | Deref :: c, e, RefVal r :: s ->
-        aux (c, e, !r :: s)
-
-    | ArraySet :: c, e, IntVal v :: IntVal key :: ArrayVal a :: s ->
+    | BArraySet :: c, e, 
+      SVal (CConst (Int v)) :: 
+      SVal (CConst (Int key)) :: 
+      SVal (CArray a) :: s ->
         a.(key) <- v;
-        aux (c, e, UnitVal :: s)
+        aux (c, e, (SVal (CConst Unit)) :: s)
 
-    | ArrayRead :: c, e, IntVal key :: ArrayVal a :: s ->
-        aux (c, e, IntVal a.(key) :: s)
+    | BArrayRead :: c, e, 
+      SVal (CConst (Int key)) :: 
+      SVal (CArray a) :: s ->
+        aux (c, e, (SVal (CConst (Int a.(key)))) :: s)
 
-    | UnOp op :: c, e, v :: s ->
-        aux (c, e, (compute_unary op v) :: s)
+    | BAccess x :: c, e :: q, s ->
+        aux (c, e :: q, SVal (Env.find x e) :: s)
 
-    | BinOp op :: c, e, v' :: v :: s ->
-        aux (c, e, (compute_binary op v v') :: s)
-    
-    | Access x :: c, e, s ->
-        aux (c, e, (IncrEnv.find x e) :: s)
+    | BEncap c' :: c, e, s ->
+        aux (c, e, (SEncap c') :: s)
 
-    | Encap c' :: c, e, s ->
-        aux (c, e, (EncapVal c') :: s)
+    | BClosure (p, c') :: c, e :: q, s ->
+        aux (c, e :: q, (SVal (CBClosure (p, c', e))) :: s)
 
-    | Closure (x, c') :: c, e, s ->
-        aux (c, e, (ClosureVal (x, c', e)) :: s)
+    | BRecClosure (f, p, c') :: c, e :: q, s ->
+        aux (c, e :: q, (SVal (CBRec (f, p, c', e))) :: s)
 
-    | RecClosure (f, x, c') :: c, e, s ->
-        aux (c, e, (RecClosureVal (f, x, c', e)) :: s)
+    | BLet p :: c, e :: q, SVal v :: s ->
+        (* todo : matching *)
+        let x = "foo" in
+        aux (c, (Env.add x v e) :: e :: q, s)
 
-    | Let x :: c, e, v :: s ->
-        aux (c, IncrEnv.add x v e, s)
+    | BEndLet :: c, e :: q, s ->
+        aux (c, q, s)
 
-    | EndLet x :: c, e, s ->
-        aux (c, IncrEnv.remove x e, s)
+    | BApply :: c, e :: q, SVal (CBClosure (p, c', e')) :: SVal v :: s ->
+        let x = "foo" in
+        aux (c', (Env.add x v e') :: q, SEncap c :: SEnv e :: s)
 
-    | Apply :: c, e, (ClosureVal (x, c', e')) :: v :: s ->
-        aux (c', IncrEnv.add x v e', (EncapVal c) :: (EnvVal e) :: s)
+    | BApply :: c, e :: q, SVal (CBRec (f, p, c', e') as r) :: SVal v :: s ->
+        let e'' = Env.add f r e' in
+        let x = "foo" in
+        aux (c', (Env.add x v e'') :: q, SEncap c :: SEnv e :: s)
 
-    | Apply :: c, e, (RecClosureVal (f, x, c', e') as r) :: v :: s ->
-        let e'' = IncrEnv.add f r e' in
-        aux (c', IncrEnv.add x v e'', (EncapVal c) :: (EnvVal e) :: s)
+    | BApply :: c, e, SVal (CMetaClosure f) :: SVal v :: s ->
+        aux (c, e, SVal (f v) :: s)
 
-    | Apply :: c, e, (MetaClosureVal f) :: v :: s ->
-        aux (c, e, (f v) :: s)
-
-    | Branch :: c, e, (EncapVal cf) :: (EncapVal ct) :: (BoolVal b) :: s ->
+    | BBranch :: c, e, SEncap cf :: SEncap ct :: SVal (CConst (Bool b)) :: s ->
         if b then
           aux (ct @ c, e, s)
         else
           aux (cf @ c, e, s)
 
-    | Return :: c, e, v :: (EncapVal c') :: (EnvVal e') :: s ->
-        aux (c', e', v :: s)
+    | BReturn :: c, e :: q, v :: SEncap c' :: SEnv e' :: s ->
+        aux (c', e' :: q, v :: s)
         
-    | [], e, v :: s -> v
-    | [], _, _ -> UnitVal
+    | [], e :: q, SVal v :: s -> v
+    | [], _, _ -> CConst (Unit)
     | _ -> raise ExecutionError in
 
   try
-    aux (code, base, [])
+    aux (code, [base], [])
   with _ ->
       raise ExecutionError
