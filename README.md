@@ -22,10 +22,7 @@ Since the first release of the project, we have done a considerable amount of re
 
 ## Usage.
 
-> **Note**: We switched to `menhir` for parsing along the way. To compile properly, make sure you have it installed.
-  ```
-  opam install menhir
-  ```
+> **Note**: We switched to `menhir` for parsing along the way. To compile properly, make sure you have it installed *(`opam install menhir`)*.
 
 - Compile with `make`.
 
@@ -93,6 +90,7 @@ let f = prInt in f 2;;
 - Integer comparisons: `<`, `>`, `<=`, `>=`, `=`, `<>`.
 - Boolean operations: `&&`, `||` and `not`.
 - List operations: `::` and `@`.
+- Also `|>` and `@@`.
 - Named function declaration with multiple arguments with the `let` syntax.
 
   ```ocaml
