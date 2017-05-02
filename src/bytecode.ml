@@ -6,6 +6,7 @@ type bytecode =
 
 and instruction
   = BConst of Ast.constant
+  | BTuple of int
   | BArraySet
   | BArrayRead
   | BAccess of identifier
@@ -19,46 +20,60 @@ and instruction
   | BApply
   | BBranch
   | BReturn
-(*
+
+(* string_of_pattern : Ast.pattern -> string *)
+let rec string_of_pattern = function
+  | PAll -> "_"
+  | PConst c -> begin match c with
+    | Int i -> green (string_of_int i)
+    | Bool b -> yellow (if b then "true" else "false")
+    | Unit -> magenta "()"
+    end
+  | PField id -> id
+  | PTuple pl ->
+      String.concat "" 
+        (["("] @
+          (List.mapi (fun i p ->
+            (if i <> 0 then 
+              ", "
+            else "") ^ 
+            string_of_pattern p) 
+          pl) @
+        [")"])
+
 (* string_of_instruction : instruction -> string *)
 let rec string_of_instruction = function
-  | UnitConst -> red "UnitConst"
-  | IntConst i -> red "IntConst" ^ " (" ^ green (string_of_int i) ^ ")"
-  | BoolConst b -> 
-      if b then
-        red "BoolConst" ^ " (" ^ green "true" ^ ")"
-      else
-        red "BoolConst" ^ " (" ^ green "false" ^ ")"
-  | RefConst -> red "RefConst"
-  | Deref -> red "Deref"
-  | ArrayConst -> red "ArrayConst"
-  | ArraySet -> red "ArraySet"
-  | ArrayRead -> red "ArrayRead"
+  | BConst c -> red "BConst" ^ " (" ^
+      begin match c with
+        | Int i -> green (string_of_int i)
+        | Bool b -> yellow (if b then "true" else "false")
+        | Unit -> magenta "()"
+      end ^ ")"
 
-  | UnOp op ->
-      red "UnOp" ^ " (" ^ magenta (string_of_unary_op op) ^ ")"
+  | BTuple n -> red "BTuple" ^ " (" ^ green (string_of_int n) ^ ")"
+  | BArraySet -> red "BArraySet"
+  | BArrayRead -> red "BArrayRead"
 
-  | BinOp op ->
-      red "BinOp" ^ " (" ^ magenta (string_of_binary_op op) ^ ")"
+  | BAccess id ->
+      red "BAccess" ^ " (" ^ cyan id ^ ")"
 
-  | Access id ->
-      red "Access" ^ " (" ^ cyan id ^ ")"
+  | BEncap code ->
+      red "BEncap" ^ " (" ^ (string_of_bytecode code) ^ ")"
+  
+  | BTry p -> red "BTry" ^ " (" ^ string_of_pattern p ^ ")"
+  | BRaise -> red "BRaise"
 
-  | Encap code ->
-      red "Encap" ^ " (" ^ (string_of_bytecode code) ^ ")"
+  | BClosure (pattern, code) ->
+      red "BClosure" ^ " (pat, " ^ (string_of_bytecode code) ^ ")"
 
-  | Closure (id, code) ->
-      red "Closure" ^ " (" ^ yellow id ^ ", " ^ (string_of_bytecode code) ^ ")"
+  | BRecClosure (f, p, code) ->
+      red "BRecClosure" ^ " (" ^ yellow f ^ ", " ^ string_of_pattern p ^ ", " ^ (string_of_bytecode code) ^ ")"
 
-  | RecClosure (f, id, code) ->
-      red "RecClosure" ^ " (" ^ yellow f ^ ", " ^ yellow id ^ ", " ^ (string_of_bytecode code) ^ ")"
-
-  | Let id -> red "Let" ^ " (" ^ yellow id ^ ")"
-  | EndLet id -> red "EndLet" ^ " (" ^ yellow id ^ ")"
-  | Apply -> red "Apply"
-  | Branch -> red "Branch"
-  | Print -> red "Print"
-  | Return -> red "Return"
+  | BLet p -> red "BLet" ^ " (" ^ string_of_pattern p ^ ")"
+  | BEndLet -> red "BEndLet"
+  | BApply -> red "BApply"
+  | BBranch -> red "BBranch"
+  | BReturn -> red "BReturn"
 
 (* string_of_bytecode : bytecode -> string *)
 and string_of_bytecode = function
@@ -67,4 +82,3 @@ and string_of_bytecode = function
   | h :: [] ->
       string_of_instruction h
   | [] -> ""
-*)

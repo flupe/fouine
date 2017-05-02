@@ -27,6 +27,13 @@ let run code =
     | BConst c' :: c, e, s ->
         aux (c, e, (SVal (CConst c')) :: s)
 
+    | BTuple n :: c, e, s ->
+        let unwrap = function
+          | SVal x -> x
+          | _ -> raise TypeError in
+        let (a, b) = list_split n s in
+        aux (c, e, (SVal (CTuple (List.map unwrap a))) :: b)
+
     | BArraySet :: c, e, 
       SVal (CConst (Int v)) :: 
       SVal (CConst (Int key)) :: 
@@ -52,21 +59,25 @@ let run code =
         aux (c, e :: q, (SVal (CBRec (f, p, c', e))) :: s)
 
     | BLet p :: c, e :: q, SVal v :: s ->
-        (* todo : matching *)
-        let x = "foo" in
-        aux (c, (Env.add x v e) :: e :: q, s)
+        let matched = match_pattern p v in
+        let e' = Env.fold Env.add matched e in
+        aux (c, e' :: e :: q, s)
 
     | BEndLet :: c, e :: q, s ->
         aux (c, q, s)
 
+    (* todo: exception handling *)
+
     | BApply :: c, e :: q, SVal (CBClosure (p, c', e')) :: SVal v :: s ->
-        let x = "foo" in
-        aux (c', (Env.add x v e') :: q, SEncap c :: SEnv e :: s)
+        let matched = match_pattern p v in
+        let e'' = Env.fold Env.add matched e' in
+
+        aux (c', e'' :: q, SEncap c :: SEnv e :: s)
 
     | BApply :: c, e :: q, SVal (CBRec (f, p, c', e') as r) :: SVal v :: s ->
-        let e'' = Env.add f r e' in
-        let x = "foo" in
-        aux (c', (Env.add x v e'') :: q, SEncap c :: SEnv e :: s)
+        let matched = match_pattern p v in
+        let e'' = Env.fold Env.add matched e' in
+        aux (c', (Env.add f r e'') :: q, SEncap c :: SEnv e :: s)
 
     | BApply :: c, e, SVal (CMetaClosure f) :: SVal v :: s ->
         aux (c, e, SVal (f v) :: s)
@@ -85,6 +96,6 @@ let run code =
     | _ -> raise ExecutionError in
 
   try
-    aux (code, [base], [])
+    aux (code, [Base.base], [])
   with _ ->
       raise ExecutionError

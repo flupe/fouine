@@ -3,7 +3,7 @@ open Print
 open Shared
 
 type value = Shared.value
-let env = ref Shared.base
+let env = ref Base.base
 
 let match_pattern env (a : pattern) (b : value) =
   Env.fold Env.add (Shared.match_pattern a b) env

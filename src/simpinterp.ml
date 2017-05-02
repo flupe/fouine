@@ -7,7 +7,7 @@ exception TypeError
 
 (* the default environment
  * contains our builtin functions *)
-let base = Interpreter.base
+let base = Base.base
 
 let rec match_pattern env (a : pattern) (b : constant) =
   let rec aux penv a b = match a, b with
