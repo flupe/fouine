@@ -2,40 +2,15 @@ open Ast
 open Print
 open Shared
 
-exception InterpretationError
-exception TypeError
+type value = Shared.value
+let env = ref Shared.base
 
-(* the default environment
- * contains our builtin functions *)
-let base = Interpreter.base
+let match_pattern = Interpreter.match_pattern
 
-let rec match_pattern env (a : pattern) (b : constant) =
-  let rec aux penv a b = match a, b with
-  | PAll, _ -> true, env
-  | PField id, _ ->
-      if Env.mem id penv then
-        (* i thought ocaml allowed things like this but no *)
-        raise InterpretationError
-      else true, Env.add id b penv
-  | PConst p, CConst c -> p = c, env
-  | PTuple pl, CTuple cl ->
-      match_list env pl cl
-  | _ -> raise InterpretationError
-  in
-  let matched, env' = aux Env.empty a b in
-  if matched then true, Env.fold Env.add env' env
-  else false, env
+let bind id v =
+  env := Env.add id v !env
 
-and match_list env al bl = 
-  match al, bl with
-  | p :: pt, v :: vt ->
-      let matched, env' = match_pattern env p v in
-      if matched then match_list env' pt vt
-      else false, env
-  | [], [] -> true, env
-  | _ -> raise InterpretationError
-
-let rec eval (renv : constant Env.t ref) expr =
+let rec eval_expr expr =
   let rec aux env = function
     | Empty -> CList []
     | Const c -> CConst c
@@ -52,9 +27,7 @@ let rec eval (renv : constant Env.t ref) expr =
       end
 
     | Let (p, e, fn) ->
-        let matched, env' = match_pattern env p (aux env e) in
-        if matched then aux env' fn
-        else raise InterpretationError
+        let env' = match_pattern env p (aux env e) in aux env' fn
 
     (* no pattern matching for the 1rst token of recursive definitions *)
     | LetRec (id, e, fn) -> begin
@@ -73,14 +46,11 @@ let rec eval (renv : constant Env.t ref) expr =
         let fc = aux env e in  
         match fc with
         | CClosure (pattern, fn, env') ->
-            let matched, env' = match_pattern env' pattern (aux env x) in
-            if matched then aux env' fn
-            else raise InterpretationError
+            let env' = match_pattern env pattern (aux env x) in aux env' fn
 
         | CRec (name, pattern, e, env') ->
-            let matched, env' = match_pattern (Env.add name fc env') pattern (aux env x) in
-            if matched then aux env' e
-            else raise InterpretationError
+            let env' = match_pattern env pattern (aux env x) in
+            let env' = Env.add name fc env' in aux env' e
 
         | CMetaClosure f -> f (aux env x)
 
@@ -126,4 +96,9 @@ let rec eval (renv : constant Env.t ref) expr =
 
     | TryWith _
     | Raise _ -> failwith "Exceptions not supported"
-  in aux !renv expr
+  in aux !env expr
+
+let make_interp exceptions references = (module struct
+  let eval k kE e = k <| eval_expr e
+  let bind id v = env := Env.add id v !env
+end : Shared.Interp)
