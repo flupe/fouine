@@ -9,39 +9,26 @@ exception UnimplementedError
   to be read by the virtual machine implemented in the `Secd` module. *)
 let compile e =
   let rec aux = function
-    | Unit   -> [UnitConst]
-    | Int n  -> [IntConst n]
-    | Bool b -> [BoolConst b]
-    | Var x  -> [Access x]
-
-    | Deref a ->
-        aux a @
-        [Deref]
+    | Empty   -> []
+    | Var x   -> [BAccess x]
+    | Const c -> [BConst c]
+    | Tuple l -> (* todo *)
 
     | ArraySet (a, k, v) ->
         aux a @
         aux k @
         aux v @
-        [ArraySet]
+        [BArraySet]
         
     | ArrayRead (a, k) ->
         aux a @
         aux k @
-        [ArrayRead]
-
-    | BinaryOp (op, a, b) ->
-        aux a @
-        aux b @
-        [BinOp op]
-
-    | UnaryOp (op, a) ->
-        aux a @
-        [UnOp op]
+        [BArrayRead]
 
     | Call (a, b) ->
         aux b @
         aux a @
-        [Apply]
+        [BApply]
 
     | Seq (a, b) -> 
         aux a @
@@ -49,34 +36,33 @@ let compile e =
 
     | IfThenElse (cond, a, b) ->
         aux cond @
-        [Encap (aux a)] @
-        [Encap (aux b)] @
-        [Branch]
+        [BEncap (aux a)] @
+        [BEncap (aux b)] @
+        [BBranch]
 
-    | LetRecIn (id, Fun (id', a'), b) ->
-        [RecClosure (id, id', (aux a') @ [Return])] @
-        [Let id] @
+    | LetRec (id, Fun (p, a'), b) ->
+        [BRecClosure (id, p, (aux a') @ [Return])] @
+        [BLet (PField id)] @
         aux b @
-        [EndLet id]
+        [BEndLet (PField id)]
 
-    | LetRecIn (id, a, b)
-    | LetIn (id, a, b) ->
+    | Let (p, a, b) ->
         aux a @
-        [Let id] @
+        [BLet p] @
         aux b @
-        [EndLet id]
+        [BEndLet p]
 
-    | LetRec (id, Fun (id', a')) ->
-        [RecClosure (id, id', (aux a') @ [Return])] @
-        [Let id]
+    | Fun (p, a) ->
+        [BClosure (p, (aux a) @ [BReturn])]
 
-    | LetRec (id, a)
-    | Let (id, a) ->
-        aux a @
-        [Let id]
+    | TryWith (a, p, b) ->
+        [BEncap (aux a)] @
+        [BEncap (aux b)] @
+        [BTry p]
 
-    | Fun (id, a) ->
-        [Closure (id, (aux a) @ [Return])]
+    | Raise a ->
+       aux a @
+       [BRaise]
 
     | _ ->
         raise UnimplementedError in

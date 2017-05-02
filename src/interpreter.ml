@@ -2,8 +2,7 @@ open Ast
 open Print
 open Shared
 
-exception InterpretationError
-
+type value = Shared.value
 let env = ref Shared.base
 
 let match_pattern env (a : pattern) (b : value) =
