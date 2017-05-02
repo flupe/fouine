@@ -39,18 +39,9 @@ let eval k kE e : unit =
 
     (* no pattern matching for the 1rst token of recursive definitions *)
     | LetRec (id, e, fn) -> begin
-        match e with
-        | Fun (p', e') ->
-            let f = CRec(id, p', e', env) in
-            let env' = Env.add id f env in
-            step env' k kE fn
-
-        (* ain't recursive, or at least not in the way we allow *)
-        | _ ->
-            let k' c =
-              let env' = Env.add id c env
-              in step env' k kE fn
-            in step env k' kE e
+        let f = CRec(id, e, env) in
+        let env' = Env.add id f env in
+        step env' k kE fn
       end
 
     | Fun (pattern, e) ->
@@ -64,10 +55,15 @@ let eval k kE e : unit =
                 let env' = match_pattern env' pattern v in step env' k kE fn
               in step env k' kE x
 
-          | CRec (name, pattern, e, env') ->
-              let k' v = 
-                let env' = match_pattern (Env.add name fc env') pattern v in step env' k kE e
-              in step env k' kE x
+          | CRec (name, fn, env') -> 
+              let k' = function
+                | CClosure (p, fn, env) ->
+                    let k' v = 
+                      let env = Env.add name fc env' in
+                      let env' = match_pattern env p v in step env' k kE fn
+                    in step env k' kE x
+                | _ -> raise InterpretationError
+              in step env k' kE fn
 
           | CMetaClosure f ->
               let k' v = 

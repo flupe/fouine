@@ -186,6 +186,12 @@ let rec type_of env expr =
         let tv = infer env (level + 1) v in
         infer (match_type level env tv p) level e
 
+    | LetRec (id, v, e) ->
+        let t = new_var level in
+        let env' = (id, t) :: env in
+        unify t (infer env' (level + 1) v);
+        infer env' level e
+
     | IfThenElse (c, a, b) ->
         let t_c = infer env level c in
         let t_a = infer env level a in
@@ -236,6 +242,4 @@ let rec type_of env expr =
         unify TInt t_k;
         unify (TArray t) t_a;
         t
-
-    | _ -> TUnit
-  in prune (infer env 0 expr)
+  in prune (infer env 1 expr)

@@ -3,14 +3,10 @@ open Print
 open Shared
 
 type value = Shared.value
-let env = ref Base.base
 
 let match_pattern = Interpreter.match_pattern
 
-let bind id v =
-  env := Env.add id v !env
-
-let rec eval_expr expr =
+let rec eval_expr env expr =
   let rec aux env = function
     | Empty -> CList []
     | Const c -> CConst c
@@ -31,13 +27,8 @@ let rec eval_expr expr =
 
     (* no pattern matching for the 1rst token of recursive definitions *)
     | LetRec (id, e, fn) -> begin
-        match e with
-        | Fun (p', e') ->
-            let f = CRec(id, p', e', env) in
-            aux (Env.add id f env) fn
-
-        (* ain't recursive, or at least not in the way we allow *)
-        | _ -> aux (Env.add id (aux env e) env) fn
+        let f = CRec(id, e, env) in
+        aux (Env.add id f env) fn
       end
 
     | Fun (pattern, e) -> CClosure (pattern, e, env)
@@ -46,11 +37,11 @@ let rec eval_expr expr =
         let fc = aux env e in  
         match fc with
         | CClosure (pattern, fn, env') ->
-            let env' = match_pattern env pattern (aux env x) in aux env' fn
+            let env' = match_pattern env' pattern (aux env x) in aux env' fn
 
-        | CRec (name, pattern, e, env') ->
-            let env' = match_pattern env pattern (aux env x) in
-            let env' = Env.add name fc env' in aux env' e
+        | CRec (name, e, env') ->
+            let env' = Env.add name fc env' in
+            aux env' (Call (e, x))
 
         | CMetaClosure f -> f (aux env x)
 
@@ -88,17 +79,29 @@ let rec eval_expr expr =
       end
 
     | Seq (l, r) ->
-        let lc = aux env l in
-        if lc = CConst Unit then aux env r
-        else raise InterpretationError
+        ignore <| aux env l;
+        aux env r
 
     | Tuple vl -> CTuple (List.map (aux env) vl)
 
     | TryWith _
     | Raise _ -> failwith "Exceptions not supported"
-  in aux !env expr
+  in aux env expr
 
 let make_interp exceptions references = (module struct
-  let eval k kE e = k <| eval_expr e
+  (* we have to edit our default builtings to take k and kE as arguments *)
+  let env = ref Base.base
+
+  let eval k kE e =
+    (* if we apply the no_exceptions transform, we add some functions to the environment *)
+    if exceptions then begin
+      env := !env
+        |> Env.add "k" (CMetaClosure (fun x -> k x; CConst Unit))
+        |> Env.add "kE" (CMetaClosure (fun x -> kE x; CConst Unit));
+      let e' = Call (Transform.rem_exceptions e, Tuple [Var "k"; Var "kE"]) in
+      Beautify.print_ast e';
+      ignore <| eval_expr !env e'
+    end
+
   let bind id v = env := Env.add id v !env
 end : Shared.Interp)

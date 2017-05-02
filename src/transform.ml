@@ -7,6 +7,10 @@ let def_args = Tuple [Var "k"; Var "kE"]
 let def_pat = PTuple [PField "k"; PField "kE"]
 
 let rec rem_exceptions = function
+  | Empty
+  | Var _
+  | Const _ as x -> make_success_fn <| Call (Var "k", x)
+
   | Tuple vl ->
       let names = List.mapi (fun k _ -> "a" ^ string_of_int k) vl in
       let e = Call (Var "k", Tuple (List.map (fun x -> Var x) names)) in
@@ -17,14 +21,14 @@ let rec rem_exceptions = function
             [ Fun (PField n, e)
             ; Var "kE" ])) vl names e
 
-  (* here we get rid of the let statement, but we could keep it
-   * as we have to for recursive definitions *)
   | Let (p, x, e) ->
       make_fn <| Call
         ( rem_exceptions x
         , Tuple
             [ Fun (p, Call (rem_exceptions e, def_args))
             ; Var "kE"])
+
+  | LetRec _ -> failwith "not supported"
 
   | IfThenElse (cond, a, b) ->
       make_fn <| Call
@@ -41,7 +45,7 @@ let rec rem_exceptions = function
 
   (* should not work when functions are stored in variables *)
   | Fun (p, fn) ->
-      make_fn <| Call(Var "k", Fun (PTuple [p; def_pat], Call(rem_exceptions fn, def_args)))
+      make_fn <| Call(Var "k", Fun (PTuple [p; def_pat], Call (rem_exceptions fn, def_args)))
 
   | Call (f, x) ->
       make_fn <| Call
@@ -65,9 +69,14 @@ let rec rem_exceptions = function
   | Raise e ->
       make_fn <|
         Call (rem_exceptions e, Tuple [Var "kE"; Var "kE"])
+ 
+  | Seq (a, b) ->
+      make_fn <|
+        Call (rem_exceptions a, Tuple
+          [ Fun (PField "a", Call (rem_exceptions b, def_args))
+          ; Var "kE" ])
 
   | x -> make_success_fn <| Call (Var "k", x)
-
 
 let rec rem_ref = function
   | _ -> failwith "not supported"

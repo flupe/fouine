@@ -126,8 +126,16 @@ let () =
             Env.iter aux values;
             t_env := types @ !t_env
           in Interp.eval success error e
-      | DeclRec (id, e) -> ()
-    in
+
+      | DeclRec (id, e) ->
+          let t = Infer.new_var 1 in
+          let t_env' = (id, t) :: !t_env in
+          Infer.unify t (Infer.type_of t_env' e);
+          t_env := (id, Infer.generalize 0 t) :: !t_env;
+          let v = CRec (id, e, !Interp.env) in
+          Beautify.log (Some id) t v;
+          Interp.bind id v
+      in
 
     let rec run_prog = function
       | s :: t ->
