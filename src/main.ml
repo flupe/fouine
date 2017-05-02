@@ -160,7 +160,7 @@ let () =
         else begin *)
           try
             run_prog type_env prog
-          with Interpreter.InterpretationError ->
+          with InterpretationError ->
             print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
         (* end *)
 

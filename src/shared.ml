@@ -1,10 +1,11 @@
 let (<|) = (@@)
 
 open Ast
-<<<<<<< HEAD
 open Bytecode
-=======
->>>>>>> parent of b3e65fe... moved exceptions
+
+exception TypeError
+exception MatchError
+exception InterpretationError
 
 module Env = Map.Make (struct
   type t = identifier
@@ -57,17 +58,14 @@ and match_list env al bl =
 
 let rec equal_types a b =
   match a, b with
-  | `CBClosure _, `CBClosure _
-  | `CBRec _, `CBRec _
-  | `CClosure _, `CClosure _
-  | `CRec _, `CRec _
-  | `CList [], `CList []
-  | `CArray _, `CArray _ -> true
-  | `CRef ra, `CRef rb -> equal_types !ra !rb
-  | `CTuple l1, `CTuple l2 ->
+  | CRec _, CRec _
+  | CList [], CList []
+  | CArray _, CArray _ -> true
+  | CRef ra, CRef rb -> equal_types !ra !rb
+  | CTuple l1, CTuple l2 ->
       List.for_all2 equal_types l1 l2
-  | `CList (a :: _), `CList (b :: _) -> equal_types a b
-  | `CConst a, `CConst b -> begin match a, b with
+  | CList (a :: _), CList (b :: _) -> equal_types a b
+  | CConst a, CConst b -> begin match a, b with
     | Int _, Int _
     | Bool _, Bool _
     | Unit, Unit -> true
@@ -75,27 +73,47 @@ let rec equal_types a b =
     end
   | _ -> false
 
+ 
+let meta x = CMetaClosure x
+
+let int_binop op =
+  meta @@ function
+  | CConst (Int a) -> (meta @@ function
+     | CConst (Int b) -> CConst (Int (op a b))
+     | _ -> raise TypeError)
+  | _ -> raise TypeError
+
+let gen_bool_binop op =
+  meta (fun a -> meta (fun b -> CConst (Bool (op a b))))
+
+let bool_binop op =
+  meta @@ function
+  | CConst (Bool a) -> (meta @@ function
+     | CConst (Bool b) -> CConst (Bool (op a b))
+     | _ -> raise TypeError)
+| _ -> raise TypeError
+ 
 let base =
   List.fold_left (fun e (id, v) -> Env.add id v e) Env.empty <|
-    [ "ref", meta (fun x -> `CRef (ref x))
+    [ "ref", meta (fun x -> CRef (ref x))
     ; "incr", meta (function
-        | `CRef ({ contents = `CConst (Int i)} as r) -> r := `CConst (Int (i + 1)); `CConst Unit
+        | CRef ({ contents = CConst (Int i)} as r) -> r := CConst (Int (i + 1)); CConst Unit
         | _ -> raise TypeError)
     ; "decr", meta (function
-        | `CRef ({ contents = `CConst (Int i)} as r) -> r := `CConst (Int (i - 1)); `CConst Unit
+        | CRef ({ contents = CConst (Int i)} as r) -> r := CConst (Int (i - 1)); CConst Unit
         | _ -> raise TypeError)
-    ; "not", meta (function `CConst (Bool b) -> `CConst (Bool (not b)) | _ -> raise TypeError)
-    ; "prInt", meta (function `CConst (Int i) as x -> print_endline <| string_of_int i; x | _ -> raise TypeError)
-    ; "prOut", meta (fun x -> (); `CConst Unit)
-    ; "aMake", meta (function `CConst (Int n) when n >= 0 -> `CArray (Array.make n 0) | _ -> raise TypeError)
+    ; "not", meta (function CConst (Bool b) -> CConst (Bool (not b)) | _ -> raise TypeError)
+    ; "prInt", meta (function CConst (Int i) as x -> print_endline <| string_of_int i; x | _ -> raise TypeError)
+    ; "prOut", meta (fun x -> (); CConst Unit)
+    ; "aMake", meta (function CConst (Int n) when n >= 0 -> CArray (Array.make n 0) | _ -> raise TypeError)
 
-    ; "!", meta (function `CRef x -> !x | _ -> raise TypeError)
+    ; "!", meta (function CRef x -> !x | _ -> raise TypeError)
     ; ":=", meta (function 
-        | `CRef r -> meta (fun x -> if equal_types x !r then (r := x; `CConst Unit) else raise TypeError)
+        | CRef r -> meta (fun x -> if equal_types x !r then (r := x; CConst Unit) else raise TypeError)
         | _ -> raise TypeError)
     ; "+", int_binop (+)
     ; "-", int_binop (-)
-    ; "~-", meta (function `CConst (Int x) -> `CConst (Int ~-x) | _ -> raise TypeError)
+    ; "~-", meta (function CConst (Int x) -> CConst (Int ~-x) | _ -> raise TypeError)
     ; "*", int_binop ( * )
     ; "/", int_binop (/)
     ; "mod", int_binop (mod)
@@ -107,20 +125,20 @@ let base =
     ; "<>", gen_bool_binop (<>)
     ; "&&", bool_binop (&&)
     ; "||", bool_binop (||)
-    ; "|>", meta (fun x -> meta (function `CMetaClosure f -> f x | _ -> raise TypeError))
-    ; "@@", meta (function `CMetaClosure f -> meta (fun x -> f x) | _ -> raise TypeError)
+    ; "|>", meta (fun x -> meta (function CMetaClosure f -> f x | _ -> raise TypeError))
+    ; "@@", meta (function CMetaClosure f -> meta (fun x -> f x) | _ -> raise TypeError)
     ; "::", meta (fun x -> meta (function
-        | `CList []  -> `CList [x]
-        | `CList ((a :: _) as t) ->
-            if equal_types a x then `CList (x :: t)
+        | CList []  -> CList [x]
+        | CList ((a :: _) as t) ->
+            if equal_types a x then CList (x :: t)
             else raise TypeError
         | _ -> raise TypeError))
     ; "@", meta (fun a -> meta (fun b ->
         match a, b with
-        | `CList ([] as a), `CList b
-        | `CList a, `CList ([] as b) -> `CList (a @ b)
-        | `CList ((a :: _) as ta), `CList ((b :: _) as tb) ->
-            if equal_types a b then `CList (ta @ tb)
+        | CList ([] as a), CList b
+        | CList a, CList ([] as b) -> CList (a @ b)
+        | CList ((a :: _) as ta), CList ((b :: _) as tb) ->
+            if equal_types a b then CList (ta @ tb)
             else raise TypeError
         | _ -> raise TypeError))
     ]
@@ -141,12 +159,12 @@ end
 
 let rec match_pattern_aux env a b =
   match a, b with
-  | `PAll, _ -> env
-  | `PField id, _ ->
+  | PAll, _ -> env
+  | PField id, _ ->
       if Env.mem id env then raise MatchError
       else Env.add id b env
-  | `PConst p, `CConst c when p = c -> env
-  | `PTuple pl, `CTuple cl -> match_list env pl cl
+  | PConst p, CConst c when p = c -> env
+  | PTuple pl, CTuple cl -> match_list env pl cl
   | _ -> raise MatchError
 
 and match_list env al bl = 
