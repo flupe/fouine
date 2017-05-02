@@ -24,78 +24,90 @@ type stack_value
     the exception is catched, and the environment when the handler was defined. *)
 let run code =
   let rec aux = function
-    | BConst c' :: c, e, s ->
-        aux (c, e, (SVal (CConst c')) :: s)
+    | BConst c' :: c, e, s, ex ->
+        aux (c, e, (SVal (CConst c')) :: s, ex)
 
-    | BTuple n :: c, e, s ->
+    | BTuple n :: c, e, s, ex ->
         let unwrap = function
           | SVal x -> x
           | _ -> raise TypeError in
         let (a, b) = list_split n s in
-        aux (c, e, (SVal (CTuple (List.map unwrap a))) :: b)
+        aux (c, e, (SVal (CTuple (List.map unwrap a))) :: b, ex)
 
     | BArraySet :: c, e, 
       SVal (CConst (Int v)) :: 
       SVal (CConst (Int key)) :: 
-      SVal (CArray a) :: s ->
+      SVal (CArray a) :: s, ex ->
         a.(key) <- v;
-        aux (c, e, (SVal (CConst Unit)) :: s)
+        aux (c, e, (SVal (CConst Unit)) :: s, ex)
 
     | BArrayRead :: c, e, 
       SVal (CConst (Int key)) :: 
-      SVal (CArray a) :: s ->
-        aux (c, e, (SVal (CConst (Int a.(key)))) :: s)
+      SVal (CArray a) :: s, ex ->
+        aux (c, e, (SVal (CConst (Int a.(key)))) :: s, ex)
 
-    | BAccess x :: c, e :: q, s ->
-        aux (c, e :: q, SVal (Env.find x e) :: s)
+    | BAccess x :: c, e :: q, s, ex ->
+        aux (c, e :: q, SVal (Env.find x e) :: s, ex)
 
-    | BEncap c' :: c, e, s ->
-        aux (c, e, (SEncap c') :: s)
+    | BEncap c' :: c, e, s, ex ->
+        aux (c, e, (SEncap c') :: s, ex)
 
-    | BClosure (p, c') :: c, e :: q, s ->
-        aux (c, e :: q, (SVal (CBClosure (p, c', e))) :: s)
+    | BClosure (p, c') :: c, e :: q, s, ex ->
+        aux (c, e :: q, (SVal (CBClosure (p, c', e))) :: s, ex)
 
-    | BRecClosure (f, p, c') :: c, e :: q, s ->
-        aux (c, e :: q, (SVal (CBRec (f, p, c', e))) :: s)
+    | BRecClosure (f, p, c') :: c, e :: q, s, ex ->
+        aux (c, e :: q, (SVal (CBRec (f, p, c', e))) :: s, ex)
 
-    | BLet p :: c, e :: q, SVal v :: s ->
+    | BLet p :: c, e :: q, SVal v :: s, ex ->
         let matched = match_pattern p v in
         let e' = Env.fold Env.add matched e in
-        aux (c, e' :: e :: q, s)
+        aux (c, e' :: e :: q, s, ex)
 
-    | BEndLet :: c, e :: q, s ->
-        aux (c, q, s)
+    | BEndLet :: c, e :: q, s, ex ->
+        aux (c, q, s, ex)
 
-    (* todo: exception handling *)
+    | BTry p :: c, e, SEncap cf :: SEncap ct :: s, ex ->
+        aux (ct @ c, e, s, (p, cf @ c, e) :: ex)
 
-    | BApply :: c, e :: q, SVal (CBClosure (p, c', e')) :: SVal v :: s ->
+    | BRaise :: c, e, SVal v :: s, ex ->
+        let rec handle = function
+          | [] -> raise (UncaughtError v)
+          | (p, c', e' :: eq) :: q ->
+              begin try
+                let matched = match_pattern p v in
+                let e'' = Env.fold Env.add matched e' in
+                aux (c', e'' :: eq, s, q)
+              with 
+                _ -> handle q
+              end
+          | _ -> raise ExecutionError
+        in handle ex
+
+    | BApply :: c, e :: q, SVal (CBClosure (p, c', e')) :: SVal v :: s, ex ->
         let matched = match_pattern p v in
         let e'' = Env.fold Env.add matched e' in
 
-        aux (c', e'' :: q, SEncap c :: SEnv e :: s)
+        aux (c', e'' :: q, SEncap c :: SEnv e :: s, ex)
 
-    | BApply :: c, e :: q, SVal (CBRec (f, p, c', e') as r) :: SVal v :: s ->
+    | BApply :: c, e :: q, SVal (CBRec (f, p, c', e') as r) :: SVal v :: s, ex ->
         let matched = match_pattern p v in
         let e'' = Env.fold Env.add matched e' in
-        aux (c', (Env.add f r e'') :: q, SEncap c :: SEnv e :: s)
+        aux (c', (Env.add f r e'') :: q, SEncap c :: SEnv e :: s, ex)
 
-    | BApply :: c, e, SVal (CMetaClosure f) :: SVal v :: s ->
-        aux (c, e, SVal (f v) :: s)
+    | BApply :: c, e, SVal (CMetaClosure f) :: SVal v :: s, ex ->
+        aux (c, e, SVal (f v) :: s, ex)
 
-    | BBranch :: c, e, SEncap cf :: SEncap ct :: SVal (CConst (Bool b)) :: s ->
+    | BBranch :: c, e, SEncap cf :: SEncap ct :: SVal (CConst (Bool b)) :: s, ex ->
         if b then
-          aux (ct @ c, e, s)
+          aux (ct @ c, e, s, ex)
         else
-          aux (cf @ c, e, s)
+          aux (cf @ c, e, s, ex)
 
-    | BReturn :: c, e :: q, v :: SEncap c' :: SEnv e' :: s ->
-        aux (c', e' :: q, v :: s)
+    | BReturn :: c, e :: q, v :: SEncap c' :: SEnv e' :: s, ex ->
+        aux (c', e' :: q, v :: s, ex)
         
-    | [], e :: q, SVal v :: s -> v
-    | [], _, _ -> CConst (Unit)
+    | [], e :: q, SVal v :: s, ex -> v
+    | [], _, _, _ -> CConst (Unit)
     | _ -> raise ExecutionError in
 
-  try
-    aux (code, [Base.base], [])
-  with _ ->
-      raise ExecutionError
+  aux (code, [Base.base], [], [])

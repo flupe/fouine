@@ -27,12 +27,14 @@ let rec string_of_value_type = function
   | CBClosure _ -> blue "fun"
   | CBRec _ -> blue "rec fun"
 
+(* string_of_const : Ast.constant -> string *)
+let string_of_const = function
+  | Int i -> green (string_of_int i)
+  | Bool b -> yellow (if b then "true" else "false")
+  | Unit -> magenta "()"
+
 let rec string_of_value = function
-  | CConst c -> begin match c with
-    | Int i -> green (string_of_int i)
-    | Bool b -> yellow (if b then "true" else "false")
-    | Unit -> magenta "()"
-    end
+  | CConst c -> string_of_const c
   | CRef r -> Printf.sprintf "{ contents = %s }" (string_of_value !r)
   | CArray _ -> cyan "int array"
   | CTuple vl ->
