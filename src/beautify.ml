@@ -25,6 +25,22 @@ let rec string_of_type = function
   | CList [] -> cyan "'a" ^ " list"
   | CList (a :: _) -> Printf.sprintf "%s list" (string_of_type a)
 
+let rec string_of_value = function
+  | CConst c -> begin match c with
+    | Int i -> green (string_of_int i)
+    | Bool b -> yellow (if b then "true" else "false")
+    | Unit -> magenta "()"
+    end
+  | CRef r -> Printf.sprintf "{ contents = %s }" (string_of_value !r)
+  | CClosure _
+  | CRec _ 
+  | CMetaClosure _ -> red "<fun>"
+  | CArray _ -> cyan "int array"
+  | CTuple vl ->
+      "(" ^ (String.concat ", " (List.map string_of_value vl)) ^ ")"
+  | CList vl -> 
+      "[" ^ (String.concat "; " (List.map string_of_value vl)) ^ "]"
+
 let print_constant_with f = function
   | Int k -> f (green <| string_of_int k)
   | Bool b -> f (yellow (if b then "true" else "false"))
@@ -121,7 +137,7 @@ and print_aux env i o e =
       p false o (red "else\n");
         esc false (o ^ indent) r
 
-  | LetIn (pattern, v, e) ->
+  | Let (pattern, v, e) ->
       p i o (red "let ");
       print_pattern pattern;
       print_string " = \n";
@@ -130,22 +146,12 @@ and print_aux env i o e =
       p false o (red "in\n");
         print_aux false o e
 
-  | LetRecIn (id, v, e) ->
+  | LetRec (id, v, e) ->
       p i o (red "let rec " ^ yellow id ^ " = \n");
         print_aux false (o ^ indent) v;
         print_newline();
       p false o (red "in\n");
         print_aux false o e
-
-  | Let (pattern, v) ->
-      p i o (red "let ");
-      print_pattern pattern;
-      print_string " =\n";
-      print_aux false (o ^ indent) v
-
-  | LetRec (id, v) ->
-      p i o (red "let rec " ^ yellow id ^ " = \n");
-        print_aux false (o ^ indent) v
 
   | TryWith (fn, e, fail) ->
       p i o (red "try\n");
@@ -183,8 +189,3 @@ and print_aux env i o e =
 let print_ast e =
   print_aux Env.empty true "" e;
   print_endline ";;"
-
-let print_value e =
-  print_string <| "- : " ^ string_of_type e ^ " = ";
-  print_value_aux Env.empty true "" e;
-  print_newline ()

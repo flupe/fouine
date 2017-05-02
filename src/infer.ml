@@ -34,7 +34,6 @@ let base_env : env =
   ; "prOut", TArrow (TGeneric "a", TUnit)
   ; "aMake", TArrow (TInt,  TArray TInt)
 
-  (* operators *)
   ; "+", TArrow (TInt, TArrow (TInt, TInt))
   ; "-", TArrow (TInt, TArrow (TInt, TInt))
   ; "~-", TArrow (TInt, TInt) (* infix negation *)
@@ -79,13 +78,13 @@ let rec string_of_type ?clean:(c = false) t =
     | TInt -> col green "int"
     | TBool -> col yellow "bool"
     | TUnit -> col magenta "unit"
+    | TRef t -> Printf.sprintf "%s ref" (aux true t)
     (* | TConst name -> name *)
     | TGeneric id | TVar { contents = Unbound (id, _) } -> col cyan ("'" ^ id)
     | TVar { contents = Link t } -> aux enclosed t
     | t -> begin
         Printf.sprintf (if enclosed then "(%s)" else "%s") @@ match t with
         | TList t -> Printf.sprintf "%s list" (aux true t)
-        | TRef t -> Printf.sprintf "%s ref" (aux true t)
         | TArray t -> Printf.sprintf "%s array" (aux true t)
         | TArrow (ta, tb) -> Printf.sprintf "%s -> %s" (aux true ta) (aux false tb)
         | TTuple tl -> String.concat " * " (List.map (aux true) tl)
@@ -208,7 +207,7 @@ let rec create_type_pattern env level = function
       let tl, env = List.fold_left step ([], env) pl in
       TTuple (List.rev tl), env
 
-let rec type_of renv expr = 
+let rec type_of env expr = 
   reset ();
   let rec infer env level = function
     | Empty -> TList (new_var level)
@@ -221,14 +220,9 @@ let rec type_of renv expr =
 
     | Tuple l -> TTuple (List.map (infer env level) l)
 
-    | LetIn (p, v, e) ->
+    | Let (p, v, e) ->
         let tv = infer env (level + 1) v in
         infer (match_type level env tv p) level e
-
-    | Let (p, v) ->
-        let t_v = infer env (level + 1) v in
-        renv := match_type level env t_v p;
-        t_v
 
     | IfThenElse (c, a, b) ->
         let t_c = infer env level c in
@@ -282,4 +276,4 @@ let rec type_of renv expr =
         t
 
     | _ -> TUnit
-  in prune (infer !renv 0 expr)
+  in prune (infer env 0 expr)
