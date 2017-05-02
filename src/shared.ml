@@ -1,6 +1,7 @@
 let (<|) = (@@)
 
 open Ast
+open Bytecode
 
 exception TypeError
 exception InterpretationError
@@ -12,7 +13,7 @@ module Env = Map.Make (struct
   let compare = Pervasives.compare
 end)
 
-module IncrEnv = struct
+(*module IncrEnv = struct
   type 'a t = 'a list Env.t
 
   let empty = Env.empty
@@ -28,17 +29,17 @@ module IncrEnv = struct
 
   let remove x (e : 'a t) =
     Env.add x (List.tl (Env.find x e)) e
-end
+end*)
 
 type value
-  = CConst of Ast.constant
-  | CRef of value ref
-  | CMetaClosure of (value -> value)
-  | CClosure of Ast.pattern * Ast.t * value Env.t
-  | CRec of Ast.identifier * Ast.pattern  * Ast.t * value Env.t
-  | CArray of int array
-  | CList of value list
-  | CTuple of value list
+  = `CConst of Ast.constant
+  | `CRef of value ref
+  | `CMetaClosure of (value -> value)
+  | `CClosure of Ast.pattern * Ast.t * value Env.t
+  | `CRec of Ast.identifier * Ast.pattern  * Ast.t * value Env.t
+  | `CArray of int array
+  | `CList of value list
+  | `CTuple of value list
 
 let rec match_pattern env (a : pattern) (b : value) =
   match a, b with

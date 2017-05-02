@@ -2,8 +2,16 @@ open Ast
 open Print
 open Shared
 
-exception InterpretationError
-exception TypeError
+type interp_value
+  = `CConst of Ast.constant
+  | `CRef of value ref
+  | `CMetaClosure of (value -> value)
+  | `CArray of int array
+  | `CList of value list
+  | `CTuple of value list
+  
+  | `CClosure of Ast.pattern * Ast.t * value Env.t
+  | `CRec of Ast.identifier * Ast.pattern  * Ast.t * value Env.t
 
 let meta x = CMetaClosure x
 
