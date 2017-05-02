@@ -17,12 +17,12 @@ Since the first release of the project, we have done a considerable amount of re
 - Introduction of tuples and lists.
 - Type checking and pattern matching using Didier Rémy's extension of Algorithm W.
 - Transition of all operators to meta-closures.
-- Transformations.
+- Support of user-defined infix and prefix operators.
+- Transformations *(almost)*.
 
 ## Usage.
 
 > **Note**: We switched to `menhir` for parsing along the way. To compile properly, make sure you have it installed.
-  
   ```
   opam install menhir
   ```
