@@ -1,39 +1,13 @@
 open Ast
 open Print
 open Shared
-open Beautify
 
 let parse_input () =
   Lexing.from_channel stdin
   |> Parser.main Lexer.token
 
-let expr_success t v =
-  Printf.printf "- : %s = %s\n" (Infer.string_of_type t) (Beautify.string_of_value v)
-
-let decl_success t_env p t e =
-  let env' = match_pattern p e in
-  let t_env' = Infer.match_type 0 [] t p in
-  Env.iter (fun name v ->
-    Printf.printf "val %s : %s = %s\n" name (Infer.string_of_type <| List.assoc name t_env') (Beautify.string_of_value v)) env';
-  Interpreter.append env';
-  t_env := t_env' @ !t_env
-
-let error x = 
+let error _ = 
   print_endline (err "[ERROR]" ^ " Uncaught exception.")
-
-let exec_stmt t_env = function
-  | Expr e ->
-      let t = Infer.type_of !t_env e in
-      Interpreter.exec (expr_success t) error e
-  | Decl (p, e) -> 
-      let t = Infer.type_of !t_env e in
-      Interpreter.exec (decl_success t_env p t) error e
-
-let rec run_prog envs = function
-  | s :: t ->
-      exec_stmt envs s;
-      run_prog envs t
-  | _ -> ()
 
 let () =
   let debug = ref false in
@@ -53,6 +27,41 @@ let () =
     ]
 
   in Arg.parse speclist ignore "Fouine REPL 2017";
+
+  (* the default type environment *)
+  let t_env = ref Infer.base_env in
+
+  (* we fetch the module with which to interpret our input *)
+  let (module Interp) = begin
+    (module Interpreter : Shared.Interp)
+  end in
+
+  (* execute a given statement *)
+  let rec exec_stmt = function
+    | Expr e ->
+        let t = Infer.type_of !t_env e in
+        Interp.eval (Beautify.log None t) error e
+    | Decl (p, e) ->
+        let t = Infer.type_of !t_env e in
+        let success v = 
+          let types = Infer.match_type 0 !t_env t p in
+          let values = match_pattern p v in
+          let aux id v =
+            Beautify.log (Some id) (List.assoc id types) v;
+            Interp.bind id v
+          in
+          Env.iter aux values;
+          t_env := types @ !t_env
+        in Interp.eval success error e
+    | DeclRec (id, e) -> ()
+  in
+
+  let rec run_prog = function
+    | s :: t ->
+        exec_stmt s;
+        run_prog t
+    | [] -> ()
+  in
 
   (*
   let prog = parse_input () in
@@ -123,7 +132,6 @@ let () =
 
     (* Start an interpretation REPL. *)
     else begin *)
-    let type_env = ref Infer.base_env in
 
     (* If we do the transformation to get rid of exceptions,
      * we need to add default continuations to the outer scope *)
@@ -159,9 +167,9 @@ let () =
 
         else begin *)
           try
-            run_prog type_env prog
+            run_prog prog
           with InterpretationError ->
-            print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
+            print_endline <| "[ERROR]" ^ " The interpreter ended prematurely.";
         (* end *)
 
       (* with _ ->

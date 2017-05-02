@@ -31,6 +31,26 @@ type t =
 
 type stmt =
   | Decl of pattern * t
+  | DeclRec of identifier * t
   | Expr of t
 
 type prog = stmt list
+
+type id = string
+type level = int
+
+(* types supported by the fouine language *)
+type tp =
+  | TInt | TBool | TUnit
+  (* | TConst of id *) (* this constructor will be used if we later allow type creation *)
+  | TGeneric of id (* named quantified type variable *)
+  | TList of tp
+  | TRef of tp
+  | TArray of tp
+  | TArrow of tp * tp
+  | TTuple of tp list
+  | TVar of tvar ref
+
+and tvar =
+  | Unbound of id * level
+  | Link of tp

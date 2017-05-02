@@ -8,10 +8,10 @@ let env = ref Shared.base
 let match_pattern env (a : pattern) (b : value) =
   Env.fold Env.add (Shared.match_pattern a b) env
 
-let append env' = 
-  env := Env.fold Env.add env' !env
+let bind id v = 
+  env := Env.add id v !env
 
-let exec k kE e : unit =
+let eval k kE e : unit =
   let rec step env k kE = function
     | Empty -> k <| CList []
     | Const c -> k <| CConst c

@@ -9,6 +9,7 @@ let p inline offset txt =
     print_string offset;
   print_string txt
 
+(* 
 let rec string_of_type = function
   | CConst c -> begin match c with
     | Int _ -> green "int"
@@ -24,6 +25,7 @@ let rec string_of_type = function
       "(" ^ (String.concat " * " <| List.map string_of_type tl) ^ ")"
   | CList [] -> cyan "'a" ^ " list"
   | CList (a :: _) -> Printf.sprintf "%s list" (string_of_type a)
+*)
 
 let rec string_of_value = function
   | CConst c -> begin match c with
@@ -189,3 +191,31 @@ and print_aux env i o e =
 let print_ast e =
   print_aux Env.empty true "" e;
   print_endline ";;"
+
+let rec string_of_type ?clean:(c = false) t =
+  let col f x = if c then x else f x in
+  let rec aux enclosed = function
+    | TInt -> col green "int"
+    | TBool -> col yellow "bool"
+    | TUnit -> col magenta "unit"
+    | TRef t -> Printf.sprintf "%s ref" (aux true t)
+    (* | TConst name -> name *)
+    | TGeneric id | TVar { contents = Unbound (id, _) } -> col cyan ("'" ^ id)
+    | TVar { contents = Link t } -> aux enclosed t
+    | t -> begin
+        Printf.sprintf (if enclosed then "(%s)" else "%s") @@ match t with
+        | TList t -> Printf.sprintf "%s list" (aux true t)
+        | TArray t -> Printf.sprintf "%s array" (aux true t)
+        | TArrow (ta, tb) -> Printf.sprintf "%s -> %s" (aux true ta) (aux false tb)
+        | TTuple tl -> String.concat " * " (List.map (aux true) tl)
+        | _ -> ""
+      end
+  in aux false t
+
+let log (name : string option) (t : Ast.tp) (v : Shared.value) = 
+  let prefix =
+    match name with
+    | Some id -> "val " ^ id
+    | None -> "-"
+  in
+  Printf.printf "%s : %s = %s\n" prefix (string_of_type t ~clean:true) (string_of_value v)

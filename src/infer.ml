@@ -1,24 +1,6 @@
 open Ast
 open Print
 
-type id = string
-type level = int
-
-(* types supported by the fouine language *)
-type tp =
-  | TInt | TBool | TUnit
-  (* | TConst of id *) (* this constructor will be used if we later allow type creation *)
-  | TGeneric of id (* named quantified type variable *)
-  | TList of tp
-  | TRef of tp
-  | TArray of tp
-  | TArrow of tp * tp
-  | TTuple of tp list
-  | TVar of tvar ref
-
-and tvar =
-  | Unbound of id * level
-  | Link of tp
   
 (* type environment *)
 type env = (Ast.identifier * tp) list
@@ -72,26 +54,6 @@ let new_name () =
 (* create a fresh unbound variable at a given level *)
 let new_var lvl = TVar (ref (Unbound (new_name (), lvl)))
 
-let rec string_of_type ?clean:(c = false) t =
-  let col f x = if c then x else f x in
-  let rec aux enclosed = function
-    | TInt -> col green "int"
-    | TBool -> col yellow "bool"
-    | TUnit -> col magenta "unit"
-    | TRef t -> Printf.sprintf "%s ref" (aux true t)
-    (* | TConst name -> name *)
-    | TGeneric id | TVar { contents = Unbound (id, _) } -> col cyan ("'" ^ id)
-    | TVar { contents = Link t } -> aux enclosed t
-    | t -> begin
-        Printf.sprintf (if enclosed then "(%s)" else "%s") @@ match t with
-        | TList t -> Printf.sprintf "%s list" (aux true t)
-        | TArray t -> Printf.sprintf "%s array" (aux true t)
-        | TArrow (ta, tb) -> Printf.sprintf "%s -> %s" (aux true ta) (aux false tb)
-        | TTuple tl -> String.concat " * " (List.map (aux true) tl)
-        | _ -> ""
-      end
-  in aux false t
-
 (* when possible, simplify TVar occurences *)
 let rec prune = function
   | TList t -> TList (prune t)
@@ -143,7 +105,7 @@ let rec unify ta tb =
       occurs tvr t;
       tvr := Link t
 
-  | _ -> failwith (Printf.sprintf "Cannot unify %s with %s." (string_of_type ta ~clean:true) (string_of_type tb ~clean:true))
+  | _ -> failwith (Printf.sprintf "Cannot unify %s with %s." (Beautify.string_of_type ta ~clean:true) (Beautify.string_of_type tb ~clean:true))
 
 (* quantify a given type at a specific level *)
 let rec generalize level = function

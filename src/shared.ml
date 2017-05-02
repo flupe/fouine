@@ -40,21 +40,23 @@ type value
   | CList of value list
   | CTuple of value list
 
-let rec match_pattern env (a : pattern) (b : value) =
+let rec match_pattern_aux env (a : pattern) (b : value) =
   match a, b with
   | PAll, _ -> env
   | PField id, _ ->
-      if Env.mem id env then failwith "matching error"
+      if Env.mem id env then raise MatchError
       else Env.add id b env
   | PConst p, CConst c when p = c -> env
   | PTuple pl, CTuple cl -> match_list env pl cl
-  | _ -> failwith "matching error"
+  | _ -> raise MatchError
 
 and match_list env al bl = 
   match al, bl with
-  | p :: pt, v :: vt -> match_list (match_pattern env p v) pt vt
+  | p :: pt, v :: vt -> match_list (match_pattern_aux env p v) pt vt
   | [], [] -> env
-  | _ -> failwith "matching error"
+  | _ -> raise MatchError
+
+let match_pattern = match_pattern_aux Env.empty
 
 let rec equal_types a b =
   match a, b with
@@ -147,13 +149,11 @@ type callback = value -> unit
 
 (* generic module type for a toplevel interpreter *)
 module type Interp = sig
-  type value
-
   (* run an expression and trigger success or error with the result *)
-  val exec : prog -> callback -> callback -> unit
+  val eval : callback -> callback -> Ast.t -> unit
 
-  (* append values to the current environment *)
-  val append : value Env.t -> unit
+  (* bind a new value to some identifier *)
+  val bind : id -> value -> unit
 end
 
 
