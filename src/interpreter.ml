@@ -36,7 +36,7 @@ let base =
       | _ -> raise TypeError)
   ; "not", meta (function CConst (Bool b) -> CConst (Bool (not b)) | _ -> raise TypeError)
   ; "prInt", meta (function CConst (Int i) as x -> print_endline <| string_of_int i; x | _ -> raise TypeError)
-  ; "prOut", meta (fun x -> Beautify.print_value x; CConst Unit)
+  ; "prOut", meta (fun x -> (); CConst Unit)
   ; "aMake", meta (function CConst (Int n) when n >= 0 -> CArray (Array.make n 0) | _ -> raise TypeError)
 
   ; "!", meta (function CRef x -> !x | _ -> raise TypeError)
@@ -75,7 +75,7 @@ let base =
       | _ -> raise TypeError))
   ] |> List.fold_left (fun e (id, v) -> Env.add id v e) Env.empty
 
-let rec match_pattern env (a : pattern) (b : constant) =
+let rec match_pattern env (a : pattern) (b : value) =
   let rec aux penv a b = match a, b with
   | PAll, _ -> true, env
   | PField id, _ ->
@@ -101,8 +101,7 @@ and match_list env al bl =
   | [], [] -> true, env
   | _ -> raise InterpretationError
 
-let eval (env : constant Env.t) gk kE e : unit =
-  let k = gk env in
+let eval (env : value Env.t) k kE e : unit =
   let rec step env k kE = function
     | Empty -> k <| CList []
     | Const c -> k <| CConst c
@@ -122,7 +121,7 @@ let eval (env : constant Env.t) gk kE e : unit =
           | _ -> raise InterpretationError
         in step env k' kE cond
 
-    | LetIn (p, e, fn) ->
+    | Let (p, e, fn) ->
         let k' c =
           let matched, env' = match_pattern env p c in
           if matched then
@@ -131,7 +130,7 @@ let eval (env : constant Env.t) gk kE e : unit =
         in step env k' kE e
 
     (* no pattern matching for the 1rst token of recursive definitions *)
-    | LetRecIn (id, e, fn) -> begin
+    | LetRec (id, e, fn) -> begin
         match e with
         | Fun (p', e') ->
             let f = CRec(id, p', e', env) in
@@ -143,27 +142,6 @@ let eval (env : constant Env.t) gk kE e : unit =
             let k' c =
               let env' = Env.add id c env
               in step env' k kE fn
-            in step env k' kE e
-      end
-
-    | Let (pattern, e) ->
-        let k' c =
-          let matched, env' = match_pattern env pattern c in
-          if matched then
-            gk env' c
-          else raise InterpretationError
-        in step env k' kE e
-
-    | LetRec (id, e) -> begin
-        match e with
-        | Fun (p, e') ->
-            let f = CRec(id, p, e', env) in
-            let env' = Env.add id f env in
-            gk env' f
-        | _ ->
-            let k' c =
-              let env = Env.add id c env
-              in gk env c
             in step env k' kE e
       end
 

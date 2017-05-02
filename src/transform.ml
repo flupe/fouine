@@ -19,18 +19,11 @@ let rec rem_exceptions = function
 
   (* here we get rid of the let statement, but we could keep it
    * as we have to for recursive definitions *)
-  | LetIn (p, x, e) ->
+  | Let (p, x, e) ->
       make_fn <| Call
         ( rem_exceptions x
         , Tuple
             [ Fun (p, Call (rem_exceptions e, def_args))
-            ; Var "kE"])
-
-  | Let (p, x) ->
-      make_fn <| Call
-        ( rem_exceptions x
-        , Tuple
-            [ Fun (PField "e", Let (p, Var "e"))
             ; Var "kE"])
 
   | IfThenElse (cond, a, b) ->

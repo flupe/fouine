@@ -1,5 +1,4 @@
-type identifier =
-  string
+type identifier = string
 
 type constant =
   | Int  of int
@@ -11,18 +10,15 @@ type pattern =
   | PConst of constant
   | PField of identifier
   | PTuple  of pattern list
-
+ 
 type t =
   | Empty
   | Var  of identifier
   | Const of constant
   | Tuple of t list
 
-
-  | Let of pattern * t
-  | LetRec of identifier * t
-  | LetIn of pattern * t * t
-  | LetRecIn of identifier * t * t
+  | Let of pattern * t * t
+  | LetRec of identifier * t * t
 
   | IfThenElse of t * t * t
   | Fun of pattern * t
@@ -32,3 +28,9 @@ type t =
   | Seq of t * t
   | ArraySet of t * t * t
   | ArrayRead of t * t
+
+type stmt =
+  | Decl of pattern * t
+  | Expr of t
+
+type prog = stmt list

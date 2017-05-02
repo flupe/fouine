@@ -29,7 +29,7 @@
 
 %start main
 
-%type <Ast.t list> main
+%type <Ast.prog> main
 
 (* %nonassoc IN *)
 %nonassoc below_SEMI
@@ -132,24 +132,24 @@ enclosed:
     }
 
 main:
-  | global DELIM { $1 }
+  | statement DELIM { $1 }
 
-global:
+statement:
   | global_lets { $1 }
-  | seq_expr { [ $1 ] }
+  | seq_expr { [ Expr $1 ] }
 
 global_lets:
   | { [] }
 
-  | LET pattern EQ seq_expr global_lets { Let ($2, $4) :: $5 }
+  | LET pattern EQ seq_expr global_lets { Decl ($2, $4) :: $5 }
 
   | LET ident pattern_list EQ seq_expr global_lets {
-      Let (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5) :: $6
+      Decl (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5) :: $6
     }
 
-  | LET REC ident pattern_list EQ seq_expr global_lets {
+  (* | LET REC ident pattern_list EQ seq_expr global_lets {
       LetRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6) :: $7
-    }
+    } *)
 
 comma_list:
   | comma_list COMMA expr { $3 :: $1 }
@@ -163,14 +163,14 @@ expr:
       List.fold_left (fun e a -> Call(e, a)) (hd args) (tl args)
     }
 
-  | LET pattern EQ seq_expr IN seq_expr { LetIn ($2, $4, $6) }
+  | LET pattern EQ seq_expr IN seq_expr { Let ($2, $4, $6) }
 
   | LET ident pattern_list EQ seq_expr IN seq_expr {
-      LetIn (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5, $7)
+      Let (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5, $7)
     }
 
   | LET REC ident pattern_list EQ seq_expr IN seq_expr {
-      LetRecIn ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6, $8)
+      LetRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6, $8)
     }
 
   | FUN pattern_list RARROW seq_expr {

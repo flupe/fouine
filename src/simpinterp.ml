@@ -51,13 +51,13 @@ let rec eval (renv : constant Env.t ref) expr =
         | _ -> raise InterpretationError
       end
 
-    | LetIn (p, e, fn) ->
+    | Let (p, e, fn) ->
         let matched, env' = match_pattern env p (aux env e) in
         if matched then aux env' fn
         else raise InterpretationError
 
     (* no pattern matching for the 1rst token of recursive definitions *)
-    | LetRecIn (id, e, fn) -> begin
+    | LetRec (id, e, fn) -> begin
         match e with
         | Fun (p', e') ->
             let f = CRec(id, p', e', env) in
@@ -65,28 +65,6 @@ let rec eval (renv : constant Env.t ref) expr =
 
         (* ain't recursive, or at least not in the way we allow *)
         | _ -> aux (Env.add id (aux env e) env) fn
-      end
-
-    | Let (pattern, e) ->
-        let c = aux env e in
-        let matched, env' = match_pattern env pattern c in
-        if matched then begin
-          renv := env';
-          c (* actually this expression as no value, but *)
-        end
-        else raise InterpretationError
-
-    | LetRec (id, e) -> begin
-        match e with
-        | Fun (p, e') ->
-            let f = CRec(id, p, e', env) in
-            (* gk (Env.add id f env) f *)
-            f
-        | _ ->
-            let c = aux env e in
-            let env = Env.add id c env in
-            (* in gk env c *)
-            c
       end
 
     | Fun (pattern, e) -> CClosure (pattern, e, env)
