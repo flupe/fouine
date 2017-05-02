@@ -10,24 +10,24 @@ let parse_input () =
 let expr_success t v =
   Printf.printf "- : %s = %s\n" (Infer.string_of_type t) (Beautify.string_of_value v)
 
-let decl_success (t_env, env) p t e =
-  let env' = match_pattern Env.empty p e in
+let decl_success t_env p t e =
+  let env' = match_pattern p e in
   let t_env' = Infer.match_type 0 [] t p in
   Env.iter (fun name v ->
     Printf.printf "val %s : %s = %s\n" name (Infer.string_of_type <| List.assoc name t_env') (Beautify.string_of_value v)) env';
-  env := Env.fold Env.add env' !env;
+  Interpreter.append env';
   t_env := t_env' @ !t_env
 
 let error x = 
   print_endline (err "[ERROR]" ^ " Uncaught exception.")
 
-let exec_stmt (t_env, env) = function
+let exec_stmt t_env = function
   | Expr e ->
       let t = Infer.type_of !t_env e in
-      Interpreter.eval !env (expr_success t) error e
+      Interpreter.exec (expr_success t) error e
   | Decl (p, e) -> 
       let t = Infer.type_of !t_env e in
-      Interpreter.eval !env (decl_success (t_env, env) p t) error e
+      Interpreter.exec (decl_success t_env p t) error e
 
 let rec run_prog envs = function
   | s :: t ->
@@ -123,8 +123,7 @@ let () =
 
     (* Start an interpretation REPL. *)
     else begin *)
-    let env = ref Interpreter.base in
-    let t_env = ref Infer.base_env in
+    let type_env = ref Infer.base_env in
 
     (* If we do the transformation to get rid of exceptions,
      * we need to add default continuations to the outer scope *)
@@ -160,7 +159,7 @@ let () =
 
         else begin *)
           try
-            run_prog (t_env, env) prog
+            run_prog type_env prog
           with Interpreter.InterpretationError ->
             print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
         (* end *)
