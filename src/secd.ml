@@ -3,6 +3,9 @@ open Print
 open Shared
 open Bytecode
 
+exception TypeError
+exception ExecutionError
+
 type value
   = UnitVal
   | IntVal of int

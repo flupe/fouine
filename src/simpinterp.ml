@@ -2,6 +2,9 @@ open Ast
 open Print
 open Shared
 
+exception InterpretationError
+exception TypeError
+
 (* the default environment
  * contains our builtin functions *)
 let base = Interpreter.base

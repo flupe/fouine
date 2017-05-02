@@ -3,11 +3,6 @@ let (<|) = (@@)
 open Ast
 open Bytecode
 
-exception TypeError
-exception InterpretationError
-exception ExecutionError
-exception MatchError
-
 module Env = Map.Make (struct
   type t = identifier
   let compare = Pervasives.compare
@@ -31,36 +26,31 @@ end)
     Env.add x (List.tl (Env.find x e)) e
 end*)
 
-type value =
-  [ `CConst of Ast.constant
-  | `CRef of value ref
-  | `CMetaClosure of (value -> value)
-  | `CClosure of Ast.pattern * Ast.t * value Env.t
-  | `CRec of Ast.identifier * Ast.pattern  * Ast.t * value Env.t
-  | `CArray of int array
-  | `CList of value list
-  | `CTuple of value list
-  ]
+type value
+  = CConst of Ast.constant
+  | CRef of value ref
+  | CMetaClosure of (value -> value)
+  | CClosure of Ast.pattern * Ast.t * value Env.t
+  | CRec of Ast.identifier * Ast.pattern  * Ast.t * value Env.t
+  | CArray of int array
+  | CList of value list
+  | CTuple of value list
 
-(* default environment for fouine *)
-let meta x = `CMetaClosure x
+let rec match_pattern env (a : pattern) (b : value) =
+  match a, b with
+  | PAll, _ -> env
+  | PField id, _ ->
+      if Env.mem id env then failwith "matching error"
+      else Env.add id b env
+  | PConst p, CConst c when p = c -> env
+  | PTuple pl, CTuple cl -> match_list env pl cl
+  | _ -> failwith "matching error"
 
-let int_binop op =
-  meta @@ function
-  | `CConst (Int a) -> (meta @@ function
-     | `CConst (Int b) -> `CConst (Int (op a b))
-     | _ -> raise TypeError)
-  | _ -> raise TypeError
-
-let gen_bool_binop op =
-  meta (fun a -> meta (fun b -> `CConst (Bool (op a b))))
-
-let bool_binop op =
-  meta @@ function
-  | `CConst (Bool a) -> (meta @@ function
-     | `CConst (Bool b) -> `CConst (Bool (op a b))
-     | _ -> raise TypeError)
-  | _ -> raise TypeError
+and match_list env al bl = 
+  match al, bl with
+  | p :: pt, v :: vt -> match_list (match_pattern env p v) pt vt
+  | [], [] -> env
+  | _ -> failwith "matching error"
 
 let rec equal_types a b =
   match a, b with
