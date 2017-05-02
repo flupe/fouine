@@ -66,7 +66,8 @@ As usual, the source files for our modules are located inside the `src` folder, 
 ## General design choices.
 
 - We provide atomic types `unit`, `int`, `bool`, `array`, `'a ref`, `fun`.
-- We support tuples, lists, **and pattern matching on them**.
+- We support tuples **and pattern matching on them**.
+- We support building lists with the `::` consing operator.
 - We support polymorphic exceptions.
 - We only support arrays of integers *(because the assignment asked us to do so -- we could actually provide arrays of anything, even heterogeneous arrays)*.
 - We support references to any of the previous atomic types, including functions.
@@ -115,7 +116,7 @@ let f = prInt in f 2;;
 - Chained function calls, even with anonymous functions.
 - Scopes delimited by parens or `begin`, `end`.
 - Support of several successive `let` statements without `;;` between them.
-- **New !** : Full pattern matching in `let` bindings, function declarations and exceptions.
+- **New!** : Full pattern matching in `let` bindings, function declarations and exceptions.
 
   ```ocaml
   >>> let x, (y, z) = 1, (2, 3);;
