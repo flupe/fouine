@@ -95,7 +95,12 @@ let () =
 
     (* We fetch the module with which to interpret our input. *)
     let (module Interp) = begin
-      (module Interpreter : Shared.Interp)
+      (* if we plan on doing transformartions on our code
+       * we use a simpler interpreter *)
+      if !no_exceptions || !no_ref then
+        Simpinterp.make_interp !no_exceptions !no_ref
+      else
+        (module Interpreter : Shared.Interp)
     end in
 
     (* Execute a given statement. *)
