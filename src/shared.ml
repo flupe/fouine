@@ -22,7 +22,7 @@ type value
   | CMetaClosure of (value -> value)
 
   | CClosure of Ast.pattern * Ast.t * value Env.t
-  | CRec of Ast.identifier * Ast.pattern  * Ast.t * value Env.t
+  | CRec of Ast.identifier * Ast.t * value Env.t
 
   | CBClosure of Ast.pattern * bytecode * value Env.t
   | CBRec of Ast.identifier * Ast.pattern  * bytecode * value Env.t
@@ -135,6 +135,8 @@ type callback = value -> unit
 
 (* generic module type for a toplevel interpreter *)
 module type Interp = sig
+  val env : value Env.t ref
+
   (* run an expression and trigger success or error with the result *)
   val eval : callback -> callback -> Ast.t -> unit
 

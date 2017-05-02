@@ -91,11 +91,8 @@ and print_value_aux env i o e =
       print_pattern pattern;
       pr " -> ";
       print_aux env true (o ^ indent) e
-  | CRec (name, pattern, e, _) ->
-      pr (blue "fun ");
-      print_pattern pattern;
-      pr " -> ";
-      print_aux env true (o ^ indent) e
+  | CRec (_, e, _) ->
+      print_aux env i o e
   | CMetaClosure _
   | CBClosure _
   | CBRec _ -> pr "-"
@@ -124,7 +121,7 @@ and print_aux env i o e =
   | Var id ->
       if Env.mem id env then
         match Env.find id env with
-        | CRec (name, _, _, _) -> p i o name
+        | CRec (name, _, _) -> p i o name
         | x -> print_value_aux env i o <| Env.find id env
       else
         p i o (cyan id)
@@ -219,4 +216,6 @@ let log (name : string option) (t : Ast.tp) (v : Shared.value) =
     | Some id -> "val " ^ id
     | None -> "-"
   in
-  Printf.printf "%s : %s = %s\n" prefix (string_of_type t ~clean:true) (string_of_value v)
+  Printf.printf "%s : %s = %s\n" prefix (string_of_type t ~clean:false) (string_of_value v)
+
+

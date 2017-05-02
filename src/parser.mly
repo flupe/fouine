@@ -147,9 +147,9 @@ global_lets:
       Decl (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5) :: $6
     }
 
-  (* | LET REC ident pattern_list EQ seq_expr global_lets {
-      LetRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6) :: $7
-    } *)
+  | LET REC ident pattern_list EQ seq_expr global_lets {
+      DeclRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6) :: $7
+  } 
 
 comma_list:
   | comma_list COMMA expr { $3 :: $1 }

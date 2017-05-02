@@ -3,14 +3,10 @@ open Print
 open Shared
 
 type value = Shared.value
-let env = ref Shared.base
 
 let match_pattern = Interpreter.match_pattern
 
-let bind id v =
-  env := Env.add id v !env
-
-let rec eval_expr expr =
+let rec eval_expr env expr =
   let rec aux env = function
     | Empty -> CList []
     | Const c -> CConst c
@@ -31,13 +27,8 @@ let rec eval_expr expr =
 
     (* no pattern matching for the 1rst token of recursive definitions *)
     | LetRec (id, e, fn) -> begin
-        match e with
-        | Fun (p', e') ->
-            let f = CRec(id, p', e', env) in
-            aux (Env.add id f env) fn
-
-        (* ain't recursive, or at least not in the way we allow *)
-        | _ -> aux (Env.add id (aux env e) env) fn
+        let f = CRec(id, e, env) in
+        aux (Env.add id f env) fn
       end
 
     | Fun (pattern, e) -> CClosure (pattern, e, env)
@@ -48,9 +39,9 @@ let rec eval_expr expr =
         | CClosure (pattern, fn, env') ->
             let env' = match_pattern env pattern (aux env x) in aux env' fn
 
-        | CRec (name, pattern, e, env') ->
-            let env' = match_pattern env pattern (aux env x) in
-            let env' = Env.add name fc env' in aux env' e
+        | CRec (name, e, env') ->
+            let env' = Env.add name fc env' in
+            aux env' (Call (e, x))
 
         | CMetaClosure f -> f (aux env x)
 
@@ -96,9 +87,10 @@ let rec eval_expr expr =
 
     | TryWith _
     | Raise _ -> failwith "Exceptions not supported"
-  in aux !env expr
+  in aux env expr
 
 let make_interp exceptions references = (module struct
-  let eval k kE e = k <| eval_expr e
+  let env = ref Shared.base
+  let eval k kE e = k <| eval_expr !env e
   let bind id v = env := Env.add id v !env
 end : Shared.Interp)

@@ -17,14 +17,14 @@ let rec rem_exceptions = function
             [ Fun (PField n, e)
             ; Var "kE" ])) vl names e
 
-  (* here we get rid of the let statement, but we could keep it
-   * as we have to for recursive definitions *)
   | Let (p, x, e) ->
       make_fn <| Call
         ( rem_exceptions x
         , Tuple
             [ Fun (p, Call (rem_exceptions e, def_args))
             ; Var "kE"])
+
+  | LetRec _ -> failwith "not supported"
 
   | IfThenElse (cond, a, b) ->
       make_fn <| Call

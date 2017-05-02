@@ -47,7 +47,14 @@ let () =
   let rec exec_stmt = function
     | Expr e ->
         let t = Infer.type_of !t_env e in
-        Interp.eval (Beautify.log None t) error e
+        (
+        try
+          Interp.eval (Beautify.log None t) error e
+        with _ ->
+          print_endline "ok";
+        )
+        
+
     | Decl (p, e) ->
         let t = Infer.type_of !t_env e in
         let success v = 
@@ -60,7 +67,15 @@ let () =
           Env.iter aux values;
           t_env := types @ !t_env
         in Interp.eval success error e
-    | DeclRec (id, e) -> ()
+
+    | DeclRec (id, e) ->
+        let t = Infer.new_var 1 in
+        let t_env' = (id, t) :: !t_env in
+        Infer.unify t (Infer.type_of t_env' e);
+        t_env := (id, Infer.generalize 0 t) :: !t_env;
+        let v = CRec (id, e, !Interp.env) in
+        Beautify.log (Some id) t v;
+        Interp.bind id v
   in
 
   let rec run_prog = function
@@ -153,7 +168,7 @@ let () =
       print_string <| bold ">>> ";
       flush stdout;
 
-      (* try *)
+      try
         let prog = parse_input () in
 
         (* if !debug then List.iter print_ast prog; *)
@@ -181,8 +196,8 @@ let () =
           with InterpretationError ->
             print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
 
-      (* with _ ->
-        print_endline <| err "[ERROR]" ^ " Syntax error."; *)
+      with _ ->
+        print_endline <| err "[ERROR]" ^ " Syntax error.";
     done 
     (*
   end
