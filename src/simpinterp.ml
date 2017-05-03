@@ -90,7 +90,24 @@ let rec eval_expr env expr =
 
 let make_interp exceptions references = (module struct
   (* we have to edit our default builtings to take k and kE as arguments *)
-  let env = ref Base.base
+  let env = ref begin
+    if exceptions then
+      let rec rem t v =
+        match t, v with
+        | TArrow (_, ty), CMetaClosure f ->
+            CMetaClosure (function
+              | CTuple [x; CTuple [CMetaClosure k; _]] -> k (rem ty (f x))
+              | CTuple [x; CTuple [CClosure (p, e, env); _]] ->
+                  let env' = match_pattern env p (rem ty (f x)) in eval_expr env' e
+              (* we're just going to assume k cannot be recursive *)
+              | _ -> failwith "interpretation"
+            )
+        | _, x -> x
+      in
+      Env.mapi (fun name v -> rem (List.assoc name Infer.base_env) v ) Base.base
+    else
+      Base.base
+  end
 
   let eval k kE e =
     (* if we apply the no_exceptions transform, we add some functions to the environment *)
