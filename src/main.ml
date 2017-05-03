@@ -52,7 +52,11 @@ let () =
     let bytecode = Compiler.compile <| combined in
 
     if !debug then begin
+      print_newline ();
+      print_endline <| bold "Formatted AST:";
       Beautify.print_ast combined;
+      print_newline ();
+      print_endline <| bold "Compiled bytecode:";
       print_endline <| Bytecode.string_of_bytecode bytecode;
     end;
 
@@ -83,8 +87,14 @@ let () =
     let bytecode = Compiler.compile <| combined in
 
     if !debug then begin
+      print_newline ();
+      print_endline <| bold "Formatted AST:";
       Beautify.print_ast combined;
+      print_newline ();
+      print_endline <| bold "Compiled bytecode:";
       print_endline <| Bytecode.string_of_bytecode bytecode;
+      print_newline ();
+      print_endline <| bold "Standard output:";
     end;
 
     try
