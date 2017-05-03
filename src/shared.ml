@@ -3,11 +3,6 @@ let (<|) = (@@)
 open Ast
 open Bytecode
 
-exception TypeError
-exception MatchError
-exception ExecutionError
-exception InterpretationError
-
 module Env = Map.Make (struct
   type t = identifier
   let compare = Pervasives.compare
@@ -26,6 +21,12 @@ type value
 
   | CBClosure of Ast.pattern * bytecode * value Env.t
   | CBRec of Ast.identifier * Ast.pattern  * bytecode * value Env.t
+
+exception TypeError
+exception MatchError
+exception ExecutionError
+exception InterpretationError
+exception UncaughtError of value
 
 let rec equal_types a b =
   match a, b with

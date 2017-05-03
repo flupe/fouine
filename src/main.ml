@@ -51,8 +51,10 @@ let () =
     let _ = Infer.type_of Infer.base_env combined in
     let bytecode = Compiler.compile <| combined in
 
-    if !debug then
+    if !debug then begin
+      Beautify.print_ast combined;
       print_endline <| Bytecode.string_of_bytecode bytecode;
+    end;
 
     let chan = open_out_bin !interm in
     List.iter (fun bytes -> Marshal.to_channel chan bytes []) bytecode;
@@ -66,8 +68,9 @@ let () =
 
     try
       Secd.run bytecode |> ignore
-    with _ ->
-      print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
+    with
+      | UncaughtError c -> print_endline <| red "[ERROR]" ^ " Uncaught exception: " ^ Beautify.string_of_value c ^ "."
+      | _ -> print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
 
     close_in chan
   end
@@ -79,13 +82,16 @@ let () =
     let _ = Infer.type_of Infer.base_env combined in
     let bytecode = Compiler.compile <| combined in
 
-    if !debug then
+    if !debug then begin
+      Beautify.print_ast combined;
       print_endline <| Bytecode.string_of_bytecode bytecode;
+    end;
 
     try
       Secd.run bytecode |> ignore
-    with _ ->
-      print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
+    with
+      | UncaughtError c -> print_endline <| red "[ERROR]" ^ " Uncaught exception: " ^ Beautify.string_of_value c ^ "."
+      | _ -> print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
   end
 
   (* Start an interpretation REPL. *)

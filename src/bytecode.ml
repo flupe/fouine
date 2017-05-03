@@ -21,14 +21,16 @@ and instruction
   | BBranch
   | BReturn
 
+(* string_of_const : Ast.constant -> string *)
+let string_of_const = function
+  | Int i -> green (string_of_int i)
+  | Bool b -> yellow (if b then "true" else "false")
+  | Unit -> magenta "()"
+
 (* string_of_pattern : Ast.pattern -> string *)
 let rec string_of_pattern = function
   | PAll -> "_"
-  | PConst c -> begin match c with
-    | Int i -> green (string_of_int i)
-    | Bool b -> yellow (if b then "true" else "false")
-    | Unit -> magenta "()"
-    end
+  | PConst c -> string_of_const c
   | PField id -> id
   | PTuple pl ->
       String.concat "" 
@@ -43,13 +45,7 @@ let rec string_of_pattern = function
 
 (* string_of_instruction : instruction -> string *)
 let rec string_of_instruction = function
-  | BConst c -> red "BConst" ^ " (" ^
-      begin match c with
-        | Int i -> green (string_of_int i)
-        | Bool b -> yellow (if b then "true" else "false")
-        | Unit -> magenta "()"
-      end ^ ")"
-
+  | BConst c -> red "BConst" ^ " (" ^ string_of_const c ^ ")"
   | BTuple n -> red "BTuple" ^ " (" ^ green (string_of_int n) ^ ")"
   | BArraySet -> red "BArraySet"
   | BArrayRead -> red "BArrayRead"
