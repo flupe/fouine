@@ -36,7 +36,8 @@ let string_of_const = function
 let rec string_of_value = function
   | CConst c -> string_of_const c
   | CRef r -> Printf.sprintf "{ contents = %s }" (string_of_value !r)
-  | CArray _ -> cyan "int array"
+  | CArray vl ->
+      "[|" ^ (String.concat "; " (List.map string_of_int (Array.to_list vl))) ^ "|]"
   | CTuple vl ->
       "(" ^ (String.concat ", " (List.map string_of_value vl)) ^ ")"
   | CList vl -> 
