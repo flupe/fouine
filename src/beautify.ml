@@ -9,20 +9,23 @@ let p inline offset txt =
     print_string offset;
   print_string txt
 
-(* 
-let rec string_of_type = function
+let rec string_of_value_type = function
   | CConst c -> begin match c with
     | Int _ -> green "int"
     | Bool _ -> yellow "bool"
     | Unit -> magenta "unit"
     end
-  | CRef r -> string_of_type !r ^ red " ref"
+  | CRef r -> string_of_value_type !r ^ red " ref"
   | CArray _ -> cyan "int array"
   | CTuple tl ->
-      "(" ^ (String.concat " * " <| List.map string_of_type tl) ^ ")"
+      "(" ^ (String.concat " * " <| List.map string_of_value_type tl) ^ ")"
   | CList [] -> cyan "'a" ^ " list"
-  | CList (a :: _) -> Printf.sprintf "%s list" (string_of_type a)
-*)
+  | CList (a :: _) -> Printf.sprintf "%s list" (string_of_value_type a)
+  | CMetaClosure _ -> red "builtin"
+  | CClosure _ -> blue "fun"
+  | CRec _ -> blue "rec fun"
+  | CBClosure _ -> blue "fun"
+  | CBRec _ -> blue "rec fun"
 
 let rec string_of_value = function
   | CConst c -> begin match c with
@@ -100,7 +103,6 @@ and print_value_aux env i o e =
 and esc env inline offset t =
   match t with
   | Const _
-  | Var _
   | Tuple _
   | Empty ->
       print_aux env inline offset t
@@ -213,9 +215,10 @@ let rec string_of_type ?clean:(c = false) t =
 let log (name : string option) (t : Ast.tp) (v : Shared.value) = 
   let prefix =
     match name with
-    | Some id -> "val " ^ id
+    | Some id -> blue "val " ^ id
     | None -> "-"
   in
   Printf.printf "%s : %s = %s\n" prefix (string_of_type t ~clean:false) (string_of_value v)
 
-
+let log_value (v : Shared.value) =
+  Printf.printf "- : %s = %s\n" (string_of_value_type v) (string_of_value v)

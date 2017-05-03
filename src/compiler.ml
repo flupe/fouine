@@ -12,7 +12,10 @@ let compile e =
     | Empty   -> []
     | Var x   -> [BAccess x]
     | Const c -> [BConst c]
-    | Tuple l -> (* todo *)
+
+    | Tuple l ->
+        List.rev (List.fold_left (@) [] (List.map (fun x -> aux x) l)) @
+        [BTuple (List.length l)]
 
     | ArraySet (a, k, v) ->
         aux a @
@@ -41,7 +44,7 @@ let compile e =
         [BBranch]
 
     | LetRec (id, Fun (p, a'), b) ->
-        [BRecClosure (id, p, (aux a') @ [Return])] @
+        [BRecClosure (id, p, (aux a') @ [BReturn])] @
         [BLet (PField id)] @
         aux b @
         [BEndLet]

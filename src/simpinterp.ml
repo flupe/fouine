@@ -37,7 +37,7 @@ let rec eval_expr env expr =
         let fc = aux env e in  
         match fc with
         | CClosure (pattern, fn, env') ->
-            let env' = match_pattern env pattern (aux env x) in aux env' fn
+            let env' = match_pattern env' pattern (aux env x) in aux env' fn
 
         | CRec (name, e, env') ->
             let env' = Env.add name fc env' in
@@ -79,9 +79,8 @@ let rec eval_expr env expr =
       end
 
     | Seq (l, r) ->
-        let lc = aux env l in
-        if lc = CConst Unit then aux env r
-        else raise InterpretationError
+        ignore <| aux env l;
+        aux env r
 
     | Tuple vl -> CTuple (List.map (aux env) vl)
 
@@ -90,7 +89,19 @@ let rec eval_expr env expr =
   in aux env expr
 
 let make_interp exceptions references = (module struct
-  let env = ref Shared.base
-  let eval k kE e = k <| eval_expr !env e
+  (* we have to edit our default builtings to take k and kE as arguments *)
+  let env = ref Base.base
+
+  let eval k kE e =
+    (* if we apply the no_exceptions transform, we add some functions to the environment *)
+    if exceptions then begin
+      env := !env
+        |> Env.add "k" (CMetaClosure (fun x -> k x; CConst Unit))
+        |> Env.add "kE" (CMetaClosure (fun x -> kE x; CConst Unit));
+      let e' = Call (Transform.rem_exceptions e, Tuple [Var "k"; Var "kE"]) in
+      Beautify.print_ast e';
+      ignore <| eval_expr !env e'
+    end
+
   let bind id v = env := Env.add id v !env
 end : Shared.Interp)

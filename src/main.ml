@@ -1,15 +1,18 @@
 open Ast
 open Print
 open Shared
-open Beautify
 open Secd
 
 let parse_input () =
-  Lexing.from_channel stdin
-  |> Parser.main Lexer.token
+  try
+    Lexing.from_channel stdin
+    |> Parser.main Lexer.token
+  with _ ->
+    print_endline <| err "[ERROR]" ^ " Syntax error.";
+    exit 0
 
 let error _ = 
-  print_endline (err "[ERROR]" ^ " Uncaught exception.")
+  print_endline <| err "[ERROR]" ^ " Uncaught exception."
 
 let () =
   let debug = ref false in
@@ -30,85 +33,26 @@ let () =
 
   in Arg.parse speclist ignore "Fouine REPL 2017";
 
-  (* the default type environment *)
-  let t_env = ref Infer.base_env in
-
-  (* we fetch the module with which to interpret our input *)
-  let (module Interp) = begin
-    (* if we plan on doing transformartions on our code
-     * we use a simpler interpreter *)
-    if !no_exceptions || !no_ref then
-      Simpinterp.make_interp !no_exceptions !no_ref
-    else
-      (module Interpreter : Shared.Interp)
-  end in
-
-  (* execute a given statement *)
-  let rec exec_stmt = function
-    | Expr e ->
-        let t = Infer.type_of !t_env e in
-        (
-        try
-          Interp.eval (Beautify.log None t) error e
-        with _ ->
-          print_endline "ok";
-        )
-        
-
-    | Decl (p, e) ->
-        let t = Infer.type_of !t_env e in
-        let success v = 
-          let types = Infer.match_type 0 !t_env t p in
-          let values = match_pattern p v in
-          let aux id v =
-            Beautify.log (Some id) (List.assoc id types) v;
-            Interp.bind id v
-          in
-          Env.iter aux values;
-          t_env := types @ !t_env
-        in Interp.eval success error e
-
-    | DeclRec (id, e) ->
-        let t = Infer.new_var 1 in
-        let t_env' = (id, t) :: !t_env in
-        Infer.unify t (Infer.type_of t_env' e);
-        t_env := (id, Infer.generalize 0 t) :: !t_env;
-        let v = CRec (id, e, !Interp.env) in
-        Beautify.log (Some id) t v;
-        Interp.bind id v
+  (* Combine a given program into a single expression. *)
+  let combine_stmt a b = match a with
+    | Expr e -> Let (PAll, e, b)
+    | Decl (p, e) -> Let (p, e, b)
+    | DeclRec (id, e) -> LetRec (id, e, b)
   in
 
-  let rec run_prog = function
-    | s :: t ->
-        exec_stmt s;
-        run_prog t
-    | [] -> ()
+  let combine_prog prog =
+    List.fold_right combine_stmt prog (Const Unit)
   in
-
-  (*
-  let prog = parse_input () in
-  let env = Interpreter.base in
-  let error x =
-    print_endline (red "[ERROR]" ^ " Uncaught exception.");
-    print_value x in
-  let success e x =
-    print_value x in
-  try
-    Interpreter.eval env success error (List.hd prog)
-  with Interpreter.InterpretationError ->
-    print_endline (red "[ERROR]" ^ " The interpreter ended prematurely.")
-
 
   (* Compile the input, and output it to a bytecode file. *)
   if !interm <> "" then begin
-    print_string <| bold "∴ ";
-    flush stdout;
-
     let prog = parse_input () in
-    let bytecode = List.map Compiler.compile prog in
+    let combined = combine_prog prog in
+    let _ = Infer.type_of Infer.base_env combined in
+    let bytecode = Compiler.compile <| combined in
 
     if !debug then
-      List.iter (fun x -> print_endline <| Bytecode.string_of_bytecode x) bytecode;
+      print_endline <| Bytecode.string_of_bytecode bytecode;
 
     let chan = open_out_bin !interm in
     List.iter (fun bytes -> Marshal.to_channel chan bytes []) bytecode;
@@ -121,9 +65,7 @@ let () =
     let bytecode = (Marshal.from_channel chan : Bytecode.bytecode) in
 
     try
-      Secd.run bytecode
-      |> Secd.constant_of_value
-      |> print_constant
+      Secd.run bytecode |> ignore
     with _ ->
       print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
 
@@ -132,73 +74,79 @@ let () =
 
   (* Compile the input, and run the bytecode on the SECD machine. *)
   else if !machine then begin
+    let prog = parse_input () in
+    let combined = combine_prog prog in
+    let _ = Infer.type_of Infer.base_env combined in
+    let bytecode = Compiler.compile <| combined in
+
+    if !debug then
+      print_endline <| Bytecode.string_of_bytecode bytecode;
+
     try
-      print_string <| bold "∴ ";
-      flush stdout;
-      let prog = parse_input () in
-      let bytecode = List.fold_right (@) (List.map Compiler.compile prog) [] in
-
-      if !debug then
-        List.iter print_ast prog;
-        print_endline <| Bytecode.string_of_bytecode bytecode;
-
-      try
-        Secd.run bytecode
-        |> Secd.constant_of_value
-        |> print_constant
-      with _ ->
-        print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
+      Secd.run bytecode |> ignore
     with _ ->
-      print_endline <| red "[ERROR]" ^ " Syntax error.";
+      print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
   end
 
-    (* Start an interpretation REPL. *)
-    else begin *)
+  (* Start an interpretation REPL. *)
+  else begin
+    (* The default type environment. *)
+    let t_env = ref Infer.base_env in
 
-    (* If we do the transformation to get rid of exceptions,
-     * we need to add default continuations to the outer scope *)
-    (*
-    if !no_exceptions then
-      env := !env
-        |> Env.add "k" (CMetaClosure (fun x -> print_value x; x))
-        |> Env.add "kE" (CMetaClosure (fun x -> error x; x));
-        *)
+    (* We fetch the module with which to interpret our input. *)
+    let (module Interp) = begin
+      (* if we plan on doing transformartions on our code
+       * we use a simpler interpreter *)
+      if !no_exceptions || !no_ref then
+        Simpinterp.make_interp !no_exceptions !no_ref
+      else
+        (module Interpreter : Shared.Interp)
+    end in
 
+    (* Execute a given statement. *)
+    let rec exec_stmt = function
+      | Expr e ->
+          let t = Infer.type_of !t_env e in
+          Interp.eval (Beautify.log None t) error e
+      | Decl (p, e) ->
+          let t = Infer.type_of !t_env e in
+          let success v = 
+            let types = Infer.match_type 0 !t_env t p in
+            let values = match_pattern p v in
+            let aux id v =
+              Beautify.log (Some id) (List.assoc id types) v;
+              Interp.bind id v
+            in
+            Env.iter aux values;
+            t_env := types @ !t_env
+          in Interp.eval success error e
+
+      | DeclRec (id, e) ->
+          let t = Infer.new_var 1 in
+          let t_env' = (id, t) :: !t_env in
+          Infer.unify t (Infer.type_of t_env' e);
+          t_env := (id, Infer.generalize 0 t) :: !t_env;
+          let v = CRec (id, e, !Interp.env) in
+          Beautify.log (Some id) t v;
+          Interp.bind id v
+      in
+
+    let rec run_prog = function
+      | s :: t ->
+          exec_stmt s;
+          run_prog t
+      | [] -> ()
+    in
+
+    (* Let the fun begin. *)
     while true do
       print_string <| bold ">>> ";
       flush stdout;
 
+      let prog = parse_input () in
       try
-        let prog = parse_input () in
-
-        (* if !debug then List.iter print_ast prog; *)
-
-        (*
-        if !no_exceptions then begin
-          let prog = prog
-            |> List.map Transform.rem_exceptions
-            |> List.map (fun x -> Call (x, Tuple [ Var "k"; Var "kE" ]))
-          in
-          *)
-
-          (* if !debug then List.iter print_ast prog; *)
-
-(*          try
-            List.iter (fun x -> ignore <| Simpinterp.eval env x) prog
-          with Simpinterp.InterpretationError ->
-            print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
-        end
-
-        else begin
-          *)
-          try
-            run_prog prog
-          with InterpretationError ->
-            print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
-
-      with _ ->
-        print_endline <| err "[ERROR]" ^ " Syntax error.";
+        run_prog prog
+      with InterpretationError ->
+        print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
     done 
-    (*
   end
-  *)
