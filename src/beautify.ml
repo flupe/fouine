@@ -44,9 +44,9 @@ let rec string_of_value = function
       "[" ^ (String.concat "; " (List.map string_of_value vl)) ^ "]"
   | CMetaClosure _
   | CClosure _
-  | CRec _
   | CBClosure _
   | CBRec _ -> red "<fun>"
+  | CRec _ -> red "<rec>"
 
 let print_constant_with f = function
   | Int k -> f (green <| string_of_int k)
@@ -183,6 +183,11 @@ and print_aux env i o e =
       esc i o arr;
       print_string ".(";
       esc true (o ^ indent) key; print_string ")"
+
+  | Cons (a, b) ->
+      esc i o a;
+      print_string " :: ";
+      esc true o b
 
   | Tuple vl ->
       p i o "(";

@@ -7,7 +7,15 @@ type value = Shared.value
 let match_pattern = Interpreter.match_pattern
 
 let rec eval_expr env expr =
-  let rec aux env = function
+  let rec step = function
+    | CRec (name, e, env) as c -> aux (Env.add name c env) e
+    | x -> x
+
+  and reduce = function
+    | CRec _ as c -> reduce (step c)
+    | x -> x
+
+  and aux env = function
     | Empty -> CList []
     | Const c -> CConst c
 
@@ -27,7 +35,7 @@ let rec eval_expr env expr =
 
     (* no pattern matching for the 1rst token of recursive definitions *)
     | LetRec (id, e, fn) -> begin
-        let f = CRec(id, e, env) in
+        let f = step (CRec(id, e, env)) in
         aux (Env.add id f env) fn
       end
 
@@ -35,13 +43,19 @@ let rec eval_expr env expr =
 
     | Call (e, x) -> begin
         let fc = aux env e in  
-        match fc with
-        | CClosure (pattern, fn, env') ->
-            let env' = match_pattern env' pattern (aux env x) in aux env' fn
+        match reduce fc with
+        | CClosure (pattern, fn, env') -> 
+            let x = aux env x in
+            let env' = match_pattern env' pattern x in aux env' fn
 
+        | CRec _ -> print_endline "should not be here"; raise InterpretationError
+
+        (* 
         | CRec (name, e, env') ->
             let env' = Env.add name fc env' in
+            match aux env' e in
             aux env' (Call (e, x))
+        *)
 
         | CMetaClosure f -> f (aux env x)
 
@@ -82,6 +96,19 @@ let rec eval_expr env expr =
         ignore <| aux env l;
         aux env r
 
+    | Cons (a, b) ->
+        let a = aux env a in
+        let b = aux env b in begin
+          match b with
+          | CList l -> begin match l with
+              | [] -> CList [a]
+              | x :: _ as t ->
+                  if Shared.equal_types a x then CList (a :: t)
+                  else raise InterpretationError
+            end
+          | _ -> raise InterpretationError
+        end
+
     | Tuple vl -> CTuple (List.map (aux env) vl)
 
     | TryWith _
@@ -100,7 +127,7 @@ let make_interp exceptions references = (module struct
               | CTuple [x; CTuple [CClosure (p, e, env); _]] ->
                   let env' = match_pattern env p (rem ty (f x)) in eval_expr env' e
               (* we're just going to assume k cannot be recursive *)
-              | _ -> failwith "interpretation"
+              | _ -> raise InterpretationError
             )
         | _, x -> x
       in

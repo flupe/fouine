@@ -4,6 +4,12 @@
 
   let mk_infix x op y = Call (Call (Var op, x), y)
   let mk_prefix op x = Call (Var op, x)
+
+  let atomic_type =
+    [ "int", TInt
+    ; "bool", TBool
+    ; "unit", TUnit
+    ]
 %}
 
 %token <string> IDENT
@@ -21,6 +27,7 @@
 %token LET IN IF THEN ELSE DELIM FUN RARROW REC
 %token MINUS MOD EQ
 %token UNDERSCORE COMMA
+%token SQUOTE
 
 %token TRUE FALSE
 %token TRY WITH RAISE E
@@ -61,6 +68,12 @@ boolean:
 integer:
   | INT { Int $1 }
 
+type_expr:
+  | LPAREN type_expr RPAREN { $2 }
+  | type_expr RARROW type_expr { TArrow ($1, $3) }
+  | SQUOTE IDENT { TGeneric $2 }
+  | IDENT { List.assoc $1 atomic_types }
+
 unit:
   | LPAREN RPAREN { Unit }
   | BEGIN END { Unit }
@@ -95,7 +108,6 @@ operator:
   | EQ { "=" }
   | MINUS { "-" }
   | SETREF { ":=" }
-  | CONS { "::" }
   | INFIX0 { $1 }
   | INFIX1 { $1 }
   | INFIX2 { $1 }
@@ -147,6 +159,10 @@ global_lets:
       Decl (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5) :: $6
     }
 
+  | LET REC ident EQ seq_expr global_lets {
+      DeclRec ($3, $5) :: $6
+  } 
+
   | LET REC ident pattern_list EQ seq_expr global_lets {
       DeclRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6) :: $7
   } 
@@ -193,11 +209,11 @@ expr:
       | x -> mk_prefix "~-" x
     }
 
+  | expr CONS expr   { Cons ($1, $3) }
   | expr MOD expr    { mk_infix $1 "mod" $3 }
   | expr EQ expr     { mk_infix $1 "=" $3 }
   | expr MINUS expr  { mk_infix $1 "-" $3 }
   | expr SETREF expr { mk_infix $1 ":=" $3 }
-  | expr CONS expr   { mk_infix $1 "::" $3 }
 
   | expr INFIX0 expr  { mk_infix $1 $2 $3 }
   | expr INFIX1 expr  { mk_infix $1 $2 $3 }

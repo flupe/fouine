@@ -55,12 +55,6 @@ let base =
     ; "||", bool_binop (||)
     ; "|>", meta (fun x -> meta (function CMetaClosure f -> f x | _ -> raise TypeError))
     ; "@@", meta (function CMetaClosure f -> meta (fun x -> f x) | _ -> raise TypeError)
-    ; "::", meta (fun x -> meta (function
-        | CList []  -> CList [x]
-        | CList ((a :: _) as t) ->
-            if equal_types a x then CList (x :: t)
-            else raise TypeError
-        | _ -> raise TypeError))
     ; "@", meta (fun a -> meta (fun b ->
         match a, b with
         | CList ([] as a), CList b

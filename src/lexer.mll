@@ -31,6 +31,7 @@ rule token = parse
   | ":=" { SETREF }
   | "::" { CONS }
   | '_' { UNDERSCORE }
+  | '\'' { SQUOTE }
 
   | '(' { LPAREN }
   | ')' { RPAREN }

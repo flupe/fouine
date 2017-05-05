@@ -31,6 +31,7 @@ exception UncaughtError of value
 let rec equal_types a b =
   match a, b with
   | CRec _, CRec _
+  | CClosure _, CClosure _ 
   | CList [], CList []
   | CArray _, CArray _ -> true
   | CRef ra, CRef rb -> equal_types !ra !rb

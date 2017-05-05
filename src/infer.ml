@@ -34,7 +34,6 @@ let base_env : env =
   ; "&&", TArrow (TBool, TArrow (TBool, TBool))
   ; "||", TArrow (TBool, TArrow (TBool, TBool))
 
-  ; "::", TArrow (TGeneric "a", TArrow (TList (TGeneric "a"), TList (TGeneric "a")))
   ; "@", TArrow (TList (TGeneric "a"), TArrow (TList (TGeneric "a"), TList (TGeneric "a")))
   ; "|>", TArrow (TGeneric "a", TArrow (TArrow (TGeneric "a", TGeneric "b"), TGeneric "b" ))
   ; "@@", TArrow (TArrow (TGeneric "a", TGeneric "b"), TArrow (TGeneric "a", TGeneric "b" ))
@@ -242,4 +241,12 @@ let rec type_of env expr =
         unify TInt t_k;
         unify (TArray t) t_a;
         t
+
+    | Cons (a, b) ->
+        let t_a = infer env level a in
+        let t_b = new_var level in
+        unify (TList t_b) (infer env level b);
+        unify t_a t_b;
+        TList t_b
+
   in prune (infer env 1 expr)

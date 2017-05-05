@@ -111,6 +111,20 @@ let eval k kE e : unit =
           | _ -> raise InterpretationError
         in step env k' kE arr
 
+    | Cons (a, b) ->
+        let k' a =
+          let k' = function
+            | CList l -> begin match l with
+                | [] -> k <| CList [a]
+                | x :: _ as t ->
+                    if Shared.equal_types a x then
+                      k <| CList (a :: t)
+                    else raise InterpretationError
+              end
+                | _ -> raise InterpretationError
+          in step env k' kE b
+        in step env k' kE a
+
     | Raise e ->
         step env kE kE e
 

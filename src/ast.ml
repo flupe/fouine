@@ -28,6 +28,7 @@ type t =
   | Seq of t * t
   | ArraySet of t * t * t
   | ArrayRead of t * t
+  | Cons of t * t
 
 type stmt =
   | Decl of pattern * t

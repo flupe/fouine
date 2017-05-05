@@ -114,6 +114,7 @@ let () =
       | Expr e ->
           let t = Infer.type_of !t_env e in
           Interp.eval (Beautify.log None t) error e
+
       | Decl (p, e) ->
           let t = Infer.type_of !t_env e in
           let success v = 
@@ -128,13 +129,14 @@ let () =
           in Interp.eval success error e
 
       | DeclRec (id, e) ->
-          let t = Infer.new_var 1 in
-          let t_env' = (id, t) :: !t_env in
-          Infer.unify t (Infer.type_of t_env' e);
-          t_env := (id, Infer.generalize 0 t) :: !t_env;
-          let v = CRec (id, e, !Interp.env) in
-          Beautify.log (Some id) t v;
-          Interp.bind id v
+          let e = LetRec (id, e, Var id) in
+          let t = Infer.type_of !t_env e in
+          let success v =
+            Beautify.log (Some id) t v;
+            t_env := (id, t) :: !t_env;
+            Interp.bind id v
+          in
+          Interp.eval success error e
       in
 
     let rec run_prog = function
