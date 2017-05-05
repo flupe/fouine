@@ -111,6 +111,8 @@ let rec eval_expr env expr =
 
     | Tuple vl -> CTuple (List.map (aux env) vl)
 
+    | Constraint (e, _) -> aux env e
+
     | TryWith _
     | Raise _ -> failwith "Exceptions not supported"
   in aux env expr

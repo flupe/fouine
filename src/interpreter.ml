@@ -145,6 +145,9 @@ let eval k kE e : unit =
           k <| CTuple vl
         in eval_list env k' kE vl
 
+    | Constraint (e, _) ->
+        step env k kE e
+
   and eval_list env k kE = function
     | h :: t ->
         let k' v =

@@ -196,6 +196,8 @@ and print_aux env i o e =
         print_aux true (o ^ indent) v) vl;
       print_string ")"
 
+  | Constraint (e, tp) -> print_aux i o e
+
 let print_ast e =
   print_aux Env.empty true "" e;
   print_endline ";;"

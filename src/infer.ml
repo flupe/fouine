@@ -249,4 +249,10 @@ let rec type_of env expr =
         unify t_a t_b;
         TList t_b
 
+    | Constraint (e, t) ->
+        let t = instanciate level t in
+        let t' = infer env level e in
+        unify t t';
+        t
+
   in prune (infer env 1 expr)

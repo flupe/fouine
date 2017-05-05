@@ -5,7 +5,7 @@
   let mk_infix x op y = Call (Call (Var op, x), y)
   let mk_prefix op x = Call (Var op, x)
 
-  let atomic_type =
+  let atomic_types =
     [ "int", TInt
     ; "bool", TBool
     ; "unit", TUnit
@@ -32,7 +32,7 @@
 %token TRUE FALSE
 %token TRY WITH RAISE E
 %token SETREF CONS
-%token DOT LARROW
+%token DOT LARROW COLON
 
 %start main
 
@@ -73,6 +73,10 @@ type_expr:
   | type_expr RARROW type_expr { TArrow ($1, $3) }
   | SQUOTE IDENT { TGeneric $2 }
   | IDENT { List.assoc $1 atomic_types }
+  | type_expr IDENT {
+      match $2 with
+      | "list" -> TList $1 
+    }
 
 unit:
   | LPAREN RPAREN { Unit }
@@ -131,6 +135,7 @@ semi_expr_list:
 enclosed:
   | BEGIN seq_expr END { $2 }
   | LPAREN seq_expr RPAREN { $2 }
+  | LPAREN seq_expr COLON type_expr RPAREN { Constraint ($2, $4) }
   | LBRACKET RBRACKET { Empty }
   | LBRACKET semi_expr_list RBRACKET {
       List.fold_left (fun e x -> mk_infix x "::" e) Empty $2

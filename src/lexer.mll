@@ -42,6 +42,7 @@ rule token = parse
   | '=' { EQ }
 
   | ';' { SEMI }
+  | ':' { COLON }
   | '.' { DOT }
   | ',' { COMMA }
   | ";;" { DELIM }
