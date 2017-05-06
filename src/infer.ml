@@ -1,6 +1,5 @@
 open Ast
 open Print
-
   
 (* type environment *)
 type env = (Ast.identifier * tp) list
@@ -153,7 +152,7 @@ let rec match_type level env tp = function
       unify (type_of_const c) tp;
       env
   (* TODO: check multiple occurences *)
-  | PField id -> (id, generalize level tp) :: env
+  | PField id -> (id, tp) :: env
   | PTuple pl ->
       let tl = List.map (fun _ -> new_var level) pl in unify (TTuple tl) tp;
       List.fold_left2 (fun env p t -> match_type level env t p) env pl tl
@@ -182,7 +181,7 @@ let rec type_of env expr =
     | Tuple l -> TTuple (List.map (infer env level) l)
 
     | Let (p, v, e) ->
-        let tv = infer env (level + 1) v in
+        let tv = generalize level (infer env (level + 1) v) in
         infer (match_type level env tv p) level e
 
     | LetRec (id, v, e) ->
@@ -256,3 +255,20 @@ let rec type_of env expr =
         t
 
   in prune (infer env 1 expr)
+
+let type_of_stmt env = function
+  | Decl (p, e) ->
+      let t = generalize 0 (type_of !env e) in
+      env := match_type 0 !env t p;
+      t
+
+  | DeclRec (id, e) ->
+      let t = new_var 1 in
+      let t' = type_of ((id, t) :: !env) e in
+      unify t t';
+      let t = generalize 0 t in
+      env := (id, t) :: !env;
+      t
+
+  | Expr e ->
+      type_of !env e

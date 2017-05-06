@@ -138,7 +138,7 @@ enclosed:
   | LPAREN seq_expr COLON type_expr RPAREN { Constraint ($2, $4) }
   | LBRACKET RBRACKET { Empty }
   | LBRACKET semi_expr_list RBRACKET {
-      List.fold_left (fun e x -> mk_infix x "::" e) Empty $2
+      List.fold_left (fun e x -> Cons (x, e)) Empty $2
     }
   | ident { Var $1 }
   | PREFIX enclosed { mk_prefix $1 $2 }

@@ -210,7 +210,8 @@ let rec string_of_type ?clean:(c = false) t =
     | TUnit -> col magenta "unit"
     | TRef t -> Printf.sprintf "%s ref" (aux true t)
     (* | TConst name -> name *)
-    | TGeneric id | TVar { contents = Unbound (id, _) } -> col cyan ("'" ^ id)
+    | TGeneric id -> col cyan ("'" ^ id)
+    | TVar { contents = Unbound (id, _) } -> col cyan ("'_" ^ id)
     | TVar { contents = Link t } -> aux enclosed t
     | t -> begin
         Printf.sprintf (if enclosed then "(%s)" else "%s") @@ match t with
