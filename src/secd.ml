@@ -35,7 +35,7 @@ let run code =
         aux (c, e, (SVal (CTuple (List.map unwrap a))) :: b, ex)
 
     | BArraySet :: c, e, 
-      SVal (CConst (Int v)) :: 
+      SVal v :: 
       SVal (CConst (Int key)) :: 
       SVal (CArray a) :: s, ex ->
         a.(key) <- v;
@@ -44,7 +44,7 @@ let run code =
     | BArrayRead :: c, e, 
       SVal (CConst (Int key)) :: 
       SVal (CArray a) :: s, ex ->
-        aux (c, e, (SVal (CConst (Int a.(key)))) :: s, ex)
+        aux (c, e, (SVal a.(key)) :: s, ex)
 
     | BAccess x :: c, e :: q, s, ex ->
         aux (c, e :: q, SVal (Env.find x e) :: s, ex)

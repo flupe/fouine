@@ -218,9 +218,9 @@ We support the following:
 ## AST Transformations.
 
 ### CPS Transform.
-Running the executable with the `-E` option processes the AST to handle exceptions via continuations while removing them altogether from the AST.This transform is now **applicable to any fouine expression**, even recursive definitions (without the need for additional constructors such as `Fix`).
+Running the executable with the `-E` option processes the AST to handle exceptions via continuations while removing them altogether from the AST. This transform is now **applicable to any fouine expression**, even recursive definitions (without the need for additional constructors such as `Fix`).
 
-We hit a roadblock when trying to support builtin binary operators, as any function now takes two new arguments yet binary operators are curryfied meaning you can't simply arguments to the uppermost level. But soon a hackish solution was found: We are able to find out how many arguments a function expects by looking at its type in the type environment (`TArrow(-, TArrow(-, -))`), and apply recursively the transformation. This is done once on the default environment.
+We hit a roadblock when trying to support builtin binary operators, as any function now takes two new arguments yet binary operators are curryfied meaning you can't simply add arguments to the uppermost level. But soon a hackish solution was found: We are able to find out how many arguments a function expects by looking at its type in the type environment (`TArrow(-, TArrow(-, -))`), and apply recursively the transformation. This is done once on the default environment.
 
 ## Compilation.
 

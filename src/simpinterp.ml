@@ -70,9 +70,8 @@ let rec eval_expr env expr =
                 (* out of bounds *)
                 if p >= Array.length a then raise InterpretationError
                 else begin
-                  match aux env v with
-                  | CConst (Int v) -> a.(p) <- v; CConst Unit
-                  | _ -> raise InterpretationError
+                  a.(p) <- aux env v;
+                  CConst Unit
                 end
             | _ -> raise InterpretationError
           end
@@ -86,7 +85,7 @@ let rec eval_expr env expr =
             | CConst (Int p) when p >= 0 ->
                 (* out of bounds *)
                 if p >= Array.length a then raise InterpretationError
-                else CConst (Int a.(p))
+                else a.(p)
             | _ -> raise InterpretationError
           end
         | _ -> raise InterpretationError
@@ -112,6 +111,9 @@ let rec eval_expr env expr =
     | Tuple vl -> CTuple (List.map (aux env) vl)
 
     | Constraint (e, _) -> aux env e
+
+    | Array l ->
+        CArray (Array.of_list (List.map (aux env) l))
 
     | TryWith _
     | Raise _ -> failwith "Exceptions not supported"

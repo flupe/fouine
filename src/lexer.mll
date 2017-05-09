@@ -34,6 +34,7 @@ rule token = parse
   | '\'' { SQUOTE }
 
   | '(' { LPAREN }
+  | '|' { BAR }
   | ')' { RPAREN }
   | '[' { LBRACKET }
   | ']' { RBRACKET }

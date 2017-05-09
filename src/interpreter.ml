@@ -83,13 +83,11 @@ let eval k kE e : unit =
                   if p >= Array.length a then
                     raise InterpretationError
                   else
-                  let k' v =
-                    match v with
-                    | CConst (Int v) ->
-                        a.(p) <- v;
-                        k (CConst Unit)
-                    | _ -> raise InterpretationError
-                  in step env k' kE v
+                    (* todo: type check *)
+                    let k' v =
+                      a.(p) <- v;
+                      k (CConst Unit)
+                    in step env k' kE v
                 | _ -> raise InterpretationError
               in step env k' kE key
           | _ -> raise InterpretationError
@@ -105,7 +103,7 @@ let eval k kE e : unit =
                   if p >= Array.length a then
                     raise InterpretationError
                   else
-                    k <| CConst (Int a.(p))
+                    k <| a.(p)
                 | _ -> raise InterpretationError
               in step env k' kE key
           | _ -> raise InterpretationError
@@ -147,6 +145,11 @@ let eval k kE e : unit =
 
     | Constraint (e, _) ->
         step env k kE e
+
+    | Array vl ->
+        let k' vl =
+          k <| CArray (Array.of_list vl)
+        in eval_list env k' kE vl
 
   and eval_list env k kE = function
     | h :: t ->

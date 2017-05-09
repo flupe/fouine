@@ -27,7 +27,7 @@
 %token LET IN IF THEN ELSE DELIM FUN RARROW REC
 %token MINUS MOD EQ
 %token UNDERSCORE COMMA
-%token SQUOTE
+%token SQUOTE BAR
 
 %token TRUE FALSE
 %token TRY WITH RAISE E
@@ -143,6 +143,7 @@ enclosed:
   | LBRACKET semi_expr_list RBRACKET {
       List.fold_left (fun e x -> Cons (x, e)) Empty $2
     }
+  | LBRACKET BAR semi_expr_list BAR RBRACKET { Array $3 }
   | ident { Var $1 }
   | PREFIX enclosed { mk_prefix $1 $2 }
   | constant { Const $1 }

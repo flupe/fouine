@@ -16,7 +16,7 @@ let rec string_of_value_type = function
     | Unit -> magenta "unit"
     end
   | CRef r -> string_of_value_type !r ^ red " ref"
-  | CArray _ -> cyan "int array"
+  | CArray _ -> cyan "'a array"
   | CTuple tl ->
       "(" ^ (String.concat " * " <| List.map string_of_value_type tl) ^ ")"
   | CList [] -> cyan "'a" ^ " list"
@@ -37,7 +37,7 @@ let rec string_of_value = function
   | CConst c -> string_of_const c
   | CRef r -> Printf.sprintf "{ contents = %s }" (string_of_value !r)
   | CArray vl ->
-      "[|" ^ (String.concat "; " (List.map string_of_int (Array.to_list vl))) ^ "|]"
+      "[|" ^ (String.concat "; " (List.map string_of_value (Array.to_list vl))) ^ "|]"
   | CTuple vl ->
       "(" ^ (String.concat ", " (List.map string_of_value vl)) ^ ")"
   | CList vl -> 
@@ -75,8 +75,8 @@ and print_value_aux env i o e =
   | CRef r -> pr "-"
   | CArray a ->
       let rec aux acc = function
-        | [x] -> acc ^ (green <| string_of_int x)
-        | x :: t -> aux (acc ^ green (string_of_int x) ^ "; ") t
+        | [x] -> acc ^ (green <| string_of_value x)
+        | x :: t -> aux (acc ^ green (string_of_value x) ^ "; ") t
         | _ -> acc
       in let values = aux "" (Array.to_list a)
       in pr <| "[| " ^ values ^ " |]"
@@ -195,6 +195,13 @@ and print_aux env i o e =
         if i <> 0 then print_string ", ";
         print_aux true (o ^ indent) v) vl;
       print_string ")"
+
+  | Array l ->
+      p i o "[|";
+      List.iteri (fun i v ->
+        if i <> 0 then print_string ", ";
+        print_aux true (o ^ indent) v) l;
+      print_string "|]"
 
   | Constraint (e, tp) -> print_aux i o e
 

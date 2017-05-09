@@ -34,6 +34,7 @@ type t =
   | Var  of identifier
   | Const of constant
   | Tuple of t list
+  | Array of t list
 
   | Let of pattern * t * t
   | LetRec of identifier * t * t

@@ -252,6 +252,11 @@ let rec type_of env expr =
         unify t t';
         t
 
+    | Array l ->
+        let t = new_var level in
+        List.iter (fun e -> unify t (infer env level e)) l;
+        TArray t
+
   in prune (infer env 1 expr)
 
 let type_of_stmt env = function
