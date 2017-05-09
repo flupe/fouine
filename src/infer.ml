@@ -108,9 +108,6 @@ let rec unify ta tb =
 (* quantify a given type at a specific level *)
 let rec generalize level = function
   | TList t -> TList (generalize level t)
-  (* we NEVER generalize mutable objects *)
-  | TRef _ 
-  | TArray _ as r -> r
   | TArrow (ta, tb) -> TArrow (generalize level ta, generalize level tb)
   | TTuple tl -> TTuple (List.map (generalize level) tl)
   (* you can only generalize an unbound type in an upper level *)

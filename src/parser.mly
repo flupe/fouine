@@ -69,6 +69,7 @@ integer:
   | INT { Int $1 }
 
 type_expr:
+  (* todo : n-uples *)
   | LPAREN type_expr RPAREN { $2 }
   | type_expr RARROW type_expr { TArrow ($1, $3) }
   | SQUOTE IDENT { TGeneric $2 }
@@ -76,6 +77,8 @@ type_expr:
   | type_expr IDENT {
       match $2 with
       | "list" -> TList $1 
+      | "ref" -> TRef $1 
+      | "array" -> TArray $1 
     }
 
 unit:
