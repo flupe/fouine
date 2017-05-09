@@ -28,6 +28,16 @@ let rec rem_exceptions = function
             [ Fun (PField n, e)
             ; Var "kE" ])) vl names e
 
+  | Array vl ->
+      let names = List.mapi (fun k _ -> "a" ^ string_of_int k) vl in
+      let e = Call (Var "k", Array (List.map (fun x -> Var x) names)) in
+      make_fn <|
+        List.fold_right2 (fun x n e -> Call
+          ( rem_exceptions x
+          , Tuple
+            [ Fun (PField n, e)
+            ; Var "kE" ])) vl names e
+
   | Let (p, x, e) ->
       make_fn <| Call
         ( rem_exceptions x
