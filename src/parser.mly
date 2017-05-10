@@ -10,6 +10,8 @@
     ; "bool", TBool
     ; "unit", TUnit
     ]
+
+  exception UnknownTypeHint
 %}
 
 %token <string> IDENT
@@ -39,6 +41,7 @@
 %type <Ast.prog> main
 
 (* %nonassoc IN *)
+%nonassoc IDENT
 %nonassoc below_SEMI
 %nonassoc SEMI
 %nonassoc NOELSE
@@ -46,7 +49,7 @@
 %right SETREF LARROW
 %nonassoc below_COMMA
 %left COMMA
-(* %right RARROW *)
+%right RARROW
 %left EQ INFIX5    (* =... <... >... |... &... $... != *)
 %right INFIX4      (* @... ^... *)
 %right CONS
@@ -70,15 +73,16 @@ integer:
 
 type_expr:
   (* todo : n-uples *)
-  | LPAREN type_expr RPAREN { $2 }
   | type_expr RARROW type_expr { TArrow ($1, $3) }
+  | LPAREN type_expr RPAREN { $2 }
   | SQUOTE IDENT { TGeneric $2 }
   | IDENT { List.assoc $1 atomic_types }
   | type_expr IDENT {
       match $2 with
       | "list" -> TList $1 
       | "ref" -> TRef $1 
-      | "array" -> TArray $1 
+      | "array" -> TArray $1
+      | _ -> raise UnknownTypeHint
     }
 
 unit:
@@ -205,7 +209,7 @@ expr:
   | IF expr THEN expr ELSE expr { IfThenElse ($2, $4, $6) }
   | IF expr THEN expr %prec NOELSE { IfThenElse ($2, $4, Const Unit) }
   | TRY seq_expr WITH E pattern RARROW seq_expr { TryWith ($2, $5, $7) }
-  | RAISE enclosed { Raise $2 }
+  | RAISE LPAREN E enclosed RPAREN { Raise $4 }
 
   | array_access LARROW expr {
       let arr, key = $1 in

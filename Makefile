@@ -1,2 +1,2 @@
 all:
-	ocamlbuild -use-menhir -lib unix src/main.native
+	ocamlbuild -use-menhir -tag explain -lib unix src/main.native
