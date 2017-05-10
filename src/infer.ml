@@ -1,6 +1,5 @@
 open Ast
 open Print
-
   
 (* type environment *)
 type env = (Ast.identifier * tp) list
@@ -34,7 +33,6 @@ let base_env : env =
   ; "&&", TArrow (TBool, TArrow (TBool, TBool))
   ; "||", TArrow (TBool, TArrow (TBool, TBool))
 
-  ; "::", TArrow (TGeneric "a", TArrow (TList (TGeneric "a"), TList (TGeneric "a")))
   ; "@", TArrow (TList (TGeneric "a"), TArrow (TList (TGeneric "a"), TList (TGeneric "a")))
   ; "|>", TArrow (TGeneric "a", TArrow (TArrow (TGeneric "a", TGeneric "b"), TGeneric "b" ))
   ; "@@", TArrow (TArrow (TGeneric "a", TGeneric "b"), TArrow (TGeneric "a", TGeneric "b" ))
@@ -110,8 +108,6 @@ let rec unify ta tb =
 (* quantify a given type at a specific level *)
 let rec generalize level = function
   | TList t -> TList (generalize level t)
-  | TRef t -> TRef (generalize level t)
-  | TArray t -> TArray (generalize level t)
   | TArrow (ta, tb) -> TArrow (generalize level ta, generalize level tb)
   | TTuple tl -> TTuple (List.map (generalize level) tl)
   (* you can only generalize an unbound type in an upper level *)
@@ -154,7 +150,7 @@ let rec match_type level env tp = function
       unify (type_of_const c) tp;
       env
   (* TODO: check multiple occurences *)
-  | PField id -> (id, generalize level tp) :: env
+  | PField id -> (id, tp) :: env
   | PTuple pl ->
       let tl = List.map (fun _ -> new_var level) pl in unify (TTuple tl) tp;
       List.fold_left2 (fun env p t -> match_type level env t p) env pl tl
@@ -183,7 +179,7 @@ let rec type_of env expr =
     | Tuple l -> TTuple (List.map (infer env level) l)
 
     | Let (p, v, e) ->
-        let tv = infer env (level + 1) v in
+        let tv = generalize level (infer env (level + 1) v) in
         infer (match_type level env tv p) level e
 
     | LetRec (id, v, e) ->
@@ -242,4 +238,40 @@ let rec type_of env expr =
         unify TInt t_k;
         unify (TArray t) t_a;
         t
+
+    | Cons (a, b) ->
+        let t_a = infer env level a in
+        let t_b = new_var level in
+        unify (TList t_b) (infer env level b);
+        unify t_a t_b;
+        TList t_b
+
+    | Constraint (e, t) ->
+        let t = instanciate level t in
+        let t' = infer env level e in
+        unify t t';
+        t
+
+    | Array l ->
+        let t = new_var level in
+        List.iter (fun e -> unify t (infer env level e)) l;
+        TArray t
+
   in prune (infer env 1 expr)
+
+let type_of_stmt env = function
+  | Decl (p, e) ->
+      let t = generalize 0 (type_of !env e) in
+      env := match_type 0 !env t p;
+      t
+
+  | DeclRec (id, e) ->
+      let t = new_var 1 in
+      let t' = type_of ((id, t) :: !env) e in
+      unify t t';
+      let t = generalize 0 t in
+      env := (id, t) :: !env;
+      t
+
+  | Expr e ->
+      type_of !env e

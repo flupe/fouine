@@ -4,6 +4,12 @@
 
   let mk_infix x op y = Call (Call (Var op, x), y)
   let mk_prefix op x = Call (Var op, x)
+
+  let atomic_types =
+    [ "int", TInt
+    ; "bool", TBool
+    ; "unit", TUnit
+    ]
 %}
 
 %token <string> IDENT
@@ -21,11 +27,12 @@
 %token LET IN IF THEN ELSE DELIM FUN RARROW REC
 %token MINUS MOD EQ
 %token UNDERSCORE COMMA
+%token SQUOTE BAR
 
 %token TRUE FALSE
 %token TRY WITH RAISE E
 %token SETREF CONS
-%token DOT LARROW
+%token DOT LARROW COLON
 
 %start main
 
@@ -61,6 +68,19 @@ boolean:
 integer:
   | INT { Int $1 }
 
+type_expr:
+  (* todo : n-uples *)
+  | LPAREN type_expr RPAREN { $2 }
+  | type_expr RARROW type_expr { TArrow ($1, $3) }
+  | SQUOTE IDENT { TGeneric $2 }
+  | IDENT { List.assoc $1 atomic_types }
+  | type_expr IDENT {
+      match $2 with
+      | "list" -> TList $1 
+      | "ref" -> TRef $1 
+      | "array" -> TArray $1 
+    }
+
 unit:
   | LPAREN RPAREN { Unit }
   | BEGIN END { Unit }
@@ -95,7 +115,6 @@ operator:
   | EQ { "=" }
   | MINUS { "-" }
   | SETREF { ":=" }
-  | CONS { "::" }
   | INFIX0 { $1 }
   | INFIX1 { $1 }
   | INFIX2 { $1 }
@@ -119,10 +138,12 @@ semi_expr_list:
 enclosed:
   | BEGIN seq_expr END { $2 }
   | LPAREN seq_expr RPAREN { $2 }
+  | LPAREN seq_expr COLON type_expr RPAREN { Constraint ($2, $4) }
   | LBRACKET RBRACKET { Empty }
   | LBRACKET semi_expr_list RBRACKET {
-      List.fold_left (fun e x -> mk_infix x "::" e) Empty $2
+      List.fold_left (fun e x -> Cons (x, e)) Empty $2
     }
+  | LBRACKET BAR semi_expr_list BAR RBRACKET { Array (List.rev $3) }
   | ident { Var $1 }
   | PREFIX enclosed { mk_prefix $1 $2 }
   | constant { Const $1 }
@@ -146,6 +167,10 @@ global_lets:
   | LET ident pattern_list EQ seq_expr global_lets {
       Decl (PField $2, List.fold_right (fun x e -> Fun (x, e)) $3 $5) :: $6
     }
+
+  | LET REC ident EQ seq_expr global_lets {
+      DeclRec ($3, $5) :: $6
+  } 
 
   | LET REC ident pattern_list EQ seq_expr global_lets {
       DeclRec ($3, List.fold_right (fun x e -> Fun (x, e)) $4 $6) :: $7
@@ -193,11 +218,11 @@ expr:
       | x -> mk_prefix "~-" x
     }
 
+  | expr CONS expr   { Cons ($1, $3) }
   | expr MOD expr    { mk_infix $1 "mod" $3 }
   | expr EQ expr     { mk_infix $1 "=" $3 }
   | expr MINUS expr  { mk_infix $1 "-" $3 }
   | expr SETREF expr { mk_infix $1 ":=" $3 }
-  | expr CONS expr   { mk_infix $1 "::" $3 }
 
   | expr INFIX0 expr  { mk_infix $1 $2 $3 }
   | expr INFIX1 expr  { mk_infix $1 $2 $3 }

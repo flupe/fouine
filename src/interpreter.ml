@@ -83,13 +83,11 @@ let eval k kE e : unit =
                   if p >= Array.length a then
                     raise InterpretationError
                   else
-                  let k' v =
-                    match v with
-                    | CConst (Int v) ->
-                        a.(p) <- v;
-                        k (CConst Unit)
-                    | _ -> raise InterpretationError
-                  in step env k' kE v
+                    (* todo: type check *)
+                    let k' v =
+                      a.(p) <- v;
+                      k (CConst Unit)
+                    in step env k' kE v
                 | _ -> raise InterpretationError
               in step env k' kE key
           | _ -> raise InterpretationError
@@ -105,11 +103,25 @@ let eval k kE e : unit =
                   if p >= Array.length a then
                     raise InterpretationError
                   else
-                    k <| CConst (Int a.(p))
+                    k <| a.(p)
                 | _ -> raise InterpretationError
               in step env k' kE key
           | _ -> raise InterpretationError
         in step env k' kE arr
+
+    | Cons (a, b) ->
+        let k' a =
+          let k' = function
+            | CList l -> begin match l with
+                | [] -> k <| CList [a]
+                | x :: _ as t ->
+                    if Shared.equal_types a x then
+                      k <| CList (a :: t)
+                    else raise InterpretationError
+              end
+                | _ -> raise InterpretationError
+          in step env k' kE b
+        in step env k' kE a
 
     | Raise e ->
         step env kE kE e
@@ -129,6 +141,14 @@ let eval k kE e : unit =
     | Tuple vl ->
         let k' vl =
           k <| CTuple vl
+        in eval_list env k' kE vl
+
+    | Constraint (e, _) ->
+        step env k kE e
+
+    | Array vl ->
+        let k' vl =
+          k <| CArray (Array.of_list vl)
         in eval_list env k' kE vl
 
   and eval_list env k kE = function

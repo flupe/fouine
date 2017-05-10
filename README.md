@@ -79,6 +79,31 @@ Then, instead of starting to execute the code on an empty environment, we pre-lo
 ```ocaml
 let f = prInt in f 2;;
 ```
+
+### Type inference.
+
+A complete Hindley-Milner type system has been implemented with type inference. The latter is based on work from Didier Rémy for the OCaml compiler. As with OCaml, `let` bindings introduce quantifiers to unbound types, yet we never generalize mutable objects to ensure soundness.
+
+This way, usual pitfalls associated with mutable containers are systematically avoided:
+
+```ocaml
+>>> let a = ref [];;
+val a : ('_b list) ref = { contents = [] }
+>>> 1 :: !a;;
+- : int list = [1]
+>>> a;;
+- : (int list) ref = { contents = [] }
+```
+
+```ocaml
+>>> let a = ref (fun x -> x);;
+val a : ('_b -> '_b) ref = { contents = <fun> }
+>>> a := fun x -> x + 1;;
+- : unit = ()
+>>> a;;
+- : (int -> int) ref = { contents = <fun> }
+```
+
 ## Parsing.
 
 ### Currently supported syntax.
@@ -187,6 +212,15 @@ We support the following:
 - Successive `let` definitions without the `in` keyword with a persistent global environment.
 - Recursion.
 - Exceptions handling.
+- Pattern matching. Every parameter of a function is a pattern. Same goes for the left-hand side of every `let` binding other than a function definition.
+
+
+## AST Transformations.
+
+### CPS Transform.
+Running the executable with the `-E` option processes the AST to handle exceptions via continuations while removing them altogether from the AST. This transform is now **applicable to any fouine expression**, even recursive definitions (without the need for additional constructors such as `Fix`).
+
+We hit a roadblock when trying to support builtin binary operators, as any function now takes two new arguments yet binary operators are curryfied meaning you can't simply add arguments to the uppermost level. But soon a hackish solution was found: We are able to find out how many arguments a function expects by looking at its type in the type environment (`TArrow(-, TArrow(-, -))`), and apply recursively the transformation. This is done once on the default environment.
 
 ## Compilation.
 

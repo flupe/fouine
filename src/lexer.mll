@@ -31,8 +31,10 @@ rule token = parse
   | ":=" { SETREF }
   | "::" { CONS }
   | '_' { UNDERSCORE }
+  | '\'' { SQUOTE }
 
   | '(' { LPAREN }
+  | '|' { BAR }
   | ')' { RPAREN }
   | '[' { LBRACKET }
   | ']' { RBRACKET }
@@ -41,6 +43,7 @@ rule token = parse
   | '=' { EQ }
 
   | ';' { SEMI }
+  | ':' { COLON }
   | '.' { DOT }
   | ',' { COMMA }
   | ";;" { DELIM }

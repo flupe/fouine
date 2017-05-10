@@ -33,7 +33,7 @@ let base =
     ; "not", meta (function CConst (Bool b) -> CConst (Bool (not b)) | _ -> raise TypeError)
     ; "prInt", meta (function CConst (Int i) as x -> print_endline <| string_of_int i; x | _ -> raise TypeError)
     ; "prOut", meta (fun x -> Beautify.log_value x; CConst Unit)
-    ; "aMake", meta (function CConst (Int n) when n >= 0 -> CArray (Array.make n 0) | _ -> raise TypeError)
+    ; "aMake", meta (function CConst (Int n) when n >= 0 -> CArray (Array.make n (CConst (Int 0))) | _ -> raise TypeError)
 
     ; "!", meta (function CRef x -> !x | _ -> raise TypeError)
     ; ":=", meta (function 
@@ -55,12 +55,6 @@ let base =
     ; "||", bool_binop (||)
     ; "|>", meta (fun x -> meta (function CMetaClosure f -> f x | _ -> raise TypeError))
     ; "@@", meta (function CMetaClosure f -> meta (fun x -> f x) | _ -> raise TypeError)
-    ; "::", meta (fun x -> meta (function
-        | CList []  -> CList [x]
-        | CList ((a :: _) as t) ->
-            if equal_types a x then CList (x :: t)
-            else raise TypeError
-        | _ -> raise TypeError))
     ; "@", meta (fun a -> meta (fun b ->
         match a, b with
         | CList ([] as a), CList b

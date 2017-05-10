@@ -11,7 +11,7 @@ end)
 type value
   = CConst of Ast.constant
   | CRef of value ref
-  | CArray of int array
+  | CArray of value array
   | CList of value list
   | CTuple of value list
   | CMetaClosure of (value -> value)
@@ -31,8 +31,9 @@ exception UncaughtError of value
 let rec equal_types a b =
   match a, b with
   | CRec _, CRec _
-  | CList [], CList []
-  | CArray _, CArray _ -> true
+  | CClosure _, CClosure _ 
+  | CList [], CList _
+  | CList _, CList [] -> true
   | CRef ra, CRef rb -> equal_types !ra !rb
   | CTuple l1, CTuple l2 ->
       List.for_all2 equal_types l1 l2
@@ -43,6 +44,9 @@ let rec equal_types a b =
     | Unit, Unit -> true
     | _ -> false
     end
+  | CArray ta, CArray tb ->
+      if Array.length ta = 0 || Array.length tb = 0 then true
+      else equal_types ta.(0) tb.(0)
   | _ -> false
 
 type callback = value -> unit

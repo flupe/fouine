@@ -121,30 +121,29 @@ let () =
 
     (* Execute a given statement. *)
     let rec exec_stmt = function
-      | Expr e ->
-          let t = Infer.type_of !t_env e in
+      | Expr e as s ->
+          let t = Infer.type_of_stmt t_env s in
           Interp.eval (Beautify.log None t) error e
-      | Decl (p, e) ->
-          let t = Infer.type_of !t_env e in
+
+      | Decl (p, e) as s ->
+          ignore <| Infer.type_of_stmt t_env s;
           let success v = 
-            let types = Infer.match_type 0 !t_env t p in
             let values = match_pattern p v in
             let aux id v =
-              Beautify.log (Some id) (List.assoc id types) v;
+              Beautify.log (Some id) (List.assoc id !t_env) v;
               Interp.bind id v
             in
             Env.iter aux values;
-            t_env := types @ !t_env
           in Interp.eval success error e
 
-      | DeclRec (id, e) ->
-          let t = Infer.new_var 1 in
-          let t_env' = (id, t) :: !t_env in
-          Infer.unify t (Infer.type_of t_env' e);
-          t_env := (id, Infer.generalize 0 t) :: !t_env;
-          let v = CRec (id, e, !Interp.env) in
-          Beautify.log (Some id) t v;
-          Interp.bind id v
+      | DeclRec (id, e) as s ->
+          let e = LetRec (id, e, Var id) in
+          let t = Infer.type_of_stmt t_env s in
+          let success v =
+            Beautify.log (Some id) t v;
+            Interp.bind id v
+          in
+          Interp.eval success error e
       in
 
     let rec run_prog = function
