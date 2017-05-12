@@ -159,9 +159,20 @@ let () =
       flush stdout;
 
       let prog = parse_input () in
-      try
+
+      let combined = combine_prog prog in
+      combined
+      |> Beautify.print_ast;
+      combined
+      |> Transform.rem_ref
+      |> Beautify.print_ast;
+      Expr (combined
+      |> Transform.rem_ref)
+      |> exec_stmt;
+
+      (*try
         run_prog prog
       with InterpretationError ->
-        print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
+        print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";*)
     done 
   end
