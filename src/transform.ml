@@ -98,6 +98,16 @@ let rec rem_exceptions = function
           [ Fun (PField "a", Call (rem_exceptions b, def_args))
           ; Var "kE" ])
 
+  | Constructor (const, vl) ->
+      let names = List.map (fun _ -> name ()) vl in
+      let e = Call (Var "k", Constructor (const, List.map (fun x -> Var x) names)) in
+      make_fn <|
+        List.fold_right2 (fun x n e -> Call
+          ( rem_exceptions x
+          , Tuple
+            [ Fun (PField n, e)
+            ; Var "kE" ])) vl names e
+
   (*
   | Cons (a, b) ->
       make_fn <| Call (rem_exceptions a, Tuple

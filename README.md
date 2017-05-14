@@ -115,8 +115,7 @@ It is possible to restrict the type of an expression by explicitely specifying i
 
 ### Union types.
 
-For the last submission, we added the ability to define user-land union types. Just as in OCaml, those types can be polymorphic and be parametrized by several type variables.
-Please notice that types aren't recursive just yet (We actually spent no time thinking about this specific issue).
+For the last submission, we added the ability to define user-land recursive union types. Just as in OCaml, these types can be polymorphic and parametrized by multiple type variables.
 
 ```ocaml
 >>> type 'a ok = Machin of 'a | Truc of int;;
@@ -124,9 +123,16 @@ Please notice that types aren't recursive just yet (We actually spent no time th
 - : '_a ok = Truc (5)
 >>> Machin [true; false];;
 - : bool list ok = Machin ((::) (true, (::) (false, [])))
+
 >>> type ('a, 'b) pair = Left of 'a | Right of 'b;;
 >>> Right 5;;
 - : ('_a, int) pair = Right (5)
+
+>>> type 'a tree = Leaf | Node of 'a * 'a tree * 'a tree;;
+>>> Leaf;;
+- : '_a tree = Leaf
+>>> Node (1, Leaf, Node (5, Leaf, Leaf));;
+- : int tree = Node (1, Leaf, Node (5, Leaf, Leaf))
 ```
 
 In hope of making these types useful, pattern-matching was extended to allow matching on constructors:
@@ -139,7 +145,7 @@ val a : int ok = Machin (3)
 val b : int = 3
 ```
 
-Fun fact, in OCaml the special tokens `[]` and `(::)` are special constructors, while `[1; 3; 4]` and `1 :: []` is merely syntaxic sugar to make everything practical. Thus `[1; 2]` is strictly equivalent to `(::) (1, (::) (2, []))`.
+Fun fact, in OCaml the tokens `[]` and `(::)` are special constructors, and `[1; 3; 4]` and `1 :: []` is merely syntaxic sugar to make everything practical. Thus `[1; 2]` is strictly equivalent to `(::) (1, (::) (2, []))`.
 Because we thought it would be thrilling (really, it isn't), we chose to implement lists in *fouine* as regular *fouine* constructors, making the three following expressions equivalent:
 
 ```ocaml
@@ -158,40 +164,40 @@ val h : int = 1
 val t : int list = (::) (2, (::) (3, []))
 ```
 
-You are free to rebind these two constructors as you wish, also this is surely a very poor practice.
+You are free to rebind these two constructors as you wish, also this is definitely a very poor practice.
 
 ```ocaml
->>> type truc = (::) of int * int;;
->>> 1 :: 2;;
-- : truc = (::) (1, 2)
+>>> type 'a truc = [] | (::) of 'a truc * 'a;;
+>>> ([] :: 1) :: 2;;
+- : int truc = (::) ((::) ([], 1), 2)
 ```
 
-Finally, in OCaml, there is a subtle difference between `type ok = Machin of int * int` and `type ok = Machin of (int * int)`. In the first type, `Machin` is a constructor of 2 arguments, whereas in the latter it requires only 1 argument of type `int * int`.
-The difference can come up during pattern matching:
+Finally, in OCaml, there is a subtle difference between `type ok = Machin of int * int` and `type ok = Machin of (int * int)`. In the first type definition, `Machin` is a constructor expecting 2 arguments of type `int`, whereas in the latter it requires only 1 argument of type `int * int`.
+The difference is often experienced during pattern matching:
 
 ```ocaml
->>> type ok = Machin of (int * int);;
->>> let a = Machin (2, 5);;
->>> let Machin b = a;;
+# type ok = Machin of (int * int);;
+# let a = Machin (2, 5);;
+# let Machin b = a;;
 val b : int * int = (2, 5)
 ```
 
 ```ocaml
->>> type ok = Machin of int * int;;
->>> let a = Machin (2, 5);;
->>> let Machin b = a;;
+# type ok = Machin of int * int;;
+# let a = Machin (2, 5);;
+# let Machin b = a;;
 Error: The Constructor Machin expects 2 argument(s), but it is applied here to 1 argument(s).
 ```
 
-In our fouine interpreter, this difference is taken into account (It fails miserably in the second example, as wanted, showing a cryptic error message).
+In our *fouine* interpreter, this difference is taken into account (It fails miserably in the second example, as wanted, showing a cryptic error message).
 
 ### Type aliases.
 
-It is now also possible to define type aliases. They are really only useful when constraining the type of an expression. Sadly we do not say an expression has a given type alias, its type has been restricted accordingly.
+It is now also possible to define type aliases. They are really only useful when constraining the type of an expression. Sadly we do not explicitely tell an expression belongs to some given type alias, even if its type has been restricted accordingly.
 
 ```ocaml
 >>> type liste = int list;;
->>> ([] : list);;
+>>> ([] : liste);;
 - : int list = []
 ```
 

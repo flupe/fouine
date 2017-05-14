@@ -363,8 +363,9 @@ let declare_type name params = function
   | Sum cl ->
       let params' = List.map (fun x -> TGeneric x) params in
       let t = TSum (name, params') in
-      List.iter (fun (id, tps) -> constructors := (id, (List.map build_type tps, t)) :: !constructors) cl;
-      types := (name, (params, t)) :: !types
+      types := (name, (params, t)) :: !types;
+      List.iter (fun (id, tps) -> constructors := (id, (List.map build_type tps, t)) :: !constructors) cl
+
   | Alias spec ->
       types := (name, (params, build_type spec)) :: !types
 

@@ -101,7 +101,14 @@ let rec eval_expr env expr =
     | Array l ->
         CArray (Array.of_list (List.map (aux env) l))
 
-    | Constructor _ -> CConst Unit
+    | Constructor (name, vl) -> begin
+        let l = List.map (aux env) vl in
+        let params, _ = List.assoc name !Infer.constructors in
+        match l, params with
+        | [x], [_] -> CConstructor (name, [x])
+        | _, [_] -> CConstructor (name, [CTuple l])
+        | _ -> CConstructor (name, l)
+      end
 
     | TryWith _
     | Raise _ -> failwith "Exceptions not supported"

@@ -31,7 +31,6 @@
 %token TRY WITH RAISE E
 %token SETREF CONS
 %token DOT LARROW COLON
-%token FUNCAPP
 
 %start main
 
