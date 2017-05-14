@@ -139,5 +139,12 @@ let make_interp exceptions references = (module struct
       ignore <| eval_expr !env e'
     end
 
+    (* transformation on references *)
+    else if references then begin
+      let e' = Transform.rem_ref e in
+      Beautify.print_ast e';
+      k (eval_expr !env e')
+    end
+
   let bind id v = env := Env.add id v !env
 end : Shared.Interp)

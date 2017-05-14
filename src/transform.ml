@@ -126,7 +126,6 @@ let foldi f a l =
   in aux 0 a l
 
 let rec rem_ref_aux ast = match ast with
-  | Empty
   | Var _
   | Const _ -> 
       Fun (PField "_s", Tuple [ast; Var "_s"])
