@@ -135,12 +135,11 @@ let eval k kE e : unit =
         let k' l =
           let params, _ = List.assoc name !Infer.constructors in
           k <|
-          match params with
-          | [_] -> CConstructor (name, [CTuple l])
+          match l, params with
+          | [x], [_] -> CConstructor (name, [x])
+          | _, [_] -> CConstructor (name, [CTuple l])
           | _ -> CConstructor (name, l)
         in eval_list env k' kE vl
-
-    | _ -> raise InterpretationError
 
   and eval_list env k kE = function
     | h :: t ->
