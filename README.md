@@ -104,6 +104,75 @@ val a : ('_b -> '_b) ref = { contents = <fun> }
 - : (int -> int) ref = { contents = <fun> }
 ```
 
+### Union types.
+
+For the last submission, we added the ability to define user-land union types. Just as in OCaml, those types can be polymorphic and be parametrized by several type variables.
+Please notice that types aren't recursive just yet (We actually spent no time thinking about this specific issue).
+
+```ocaml
+>>> type 'a ok = Machin of 'a | Truc of int;;
+>>> Truc 5;;
+- : int ok = Truc (5)
+>>> Machin [true; false];;
+- : bool list ok
+```
+
+In hope of making these types useful, pattern-matching was extended to allow matching on constructors:
+
+```ocaml
+>>> type 'a ok = Machin of 'a;;
+>>> let a = Machin 3;;
+val a : int ok = Machin (3)
+>>> let Machin b = a;;
+val b : int = 3
+```
+
+Fun fact, in OCaml the special tokens `[]` and `(::)` are special constructors, while the `[1; 3; 4]` and `1 :: []` syntax are merely syntaxic sugar to make everything pretty. Thus `[1; 2]` is strictly equivalent to `(::) (1, (::) (2, []))`.
+Because we thought it would be thrilling (really, it isn't), we chose to implement lists in *fouine* as regular *fouine* constructors, making the three following expressions equivalent:
+
+```ocaml
+>>> [1; 2; 3];;
+>>> 1 :: 2 :: 3 :: [];;
+>>> (::) (1, (::) (2, (::) (3, [])));;
+```
+
+Like other constructors, pattern matching is possible, with added sweetness:
+
+```ocaml
+>>> let l = [1; 2; 3];;
+>>> let (::) (h, t) = l;;
+>>> let h :: t = l;;
+val h : int = 1
+val t : int list = (::) (2, (::) (3, []))
+```
+
+You are free to rebind these two constructors as you wish, also this is surely a very poor practice.
+
+```ocaml
+>>> type truc = (::) of int * int;;
+>>> 1 :: 2;;
+- : truc = (::) (1, 2)
+```
+
+Finally, in OCaml, there is a subtle difference between `type ok = Machin of int * int` and `type ok = Machin of (int * int)`. In the first type, `Machin` is a constructor of 2 arguments, whereas in the latter it requires only 1 argument of type `int * int`.
+The difference can come up during pattern matching:
+
+```ocaml
+>>> type ok = Machin of (int * int);;
+>>> let a = Machin (2, 5);;
+>>> let Machin b = a;;
+val b : int * int = (2, 5)
+```
+
+```ocaml
+>>> type ok = Machin of int * int;;
+>>> let a = Machin (2, 5);;
+>>> let Machin b = a;;
+Error: The Constructor Machin expects 2 argument(s), but it is applied here to 1 argument(s).
+```
+
+In our fouine interpreter, this difference is taken into account (It fails miserably in the second example, as wanted, showing a cryptic error message).
+
 ## Parsing.
 
 ### Currently supported syntax.
@@ -143,11 +212,9 @@ val a : ('_b -> '_b) ref = { contents = <fun> }
 
   ```ocaml
   >>> let x, (y, z) = 1, (2, 3);;
-  - : (int * (int * int)) = (1, (2, 3))
-  >>> x;;
-  - : int = 1
-  >>> y;;
-  - : int = 2;;
+  val x : int = 1
+  val y : int = 2
+  val z : int = 3
   ```
 
   ```ocaml
@@ -158,7 +225,7 @@ val a : ('_b -> '_b) ref = { contents = <fun> }
 
   ```ocaml
   >>> try
-        raise (1, 2)
+        raise (E (1, 2))
       with E (x, y) ->
         x + y
       ;;
@@ -171,9 +238,9 @@ When running `./fouine` without additionnal parameters, we provide a REPL *(read
 
 ```ocaml
 >>> let a = 3;;
-- : int = 3
+val a : int = 3
 >>> let b = 4;;
-- : int = 4
+val b : int = 4
 >>> a + b;;
 - : int = 7
 ```
@@ -186,16 +253,7 @@ Our pretty-printing routine is designed to be as explicit as possible. For insta
 
 ```ocaml
 >>> prInt;;
-- : builtin = -
-```
-
-More interestingly, when dealing with partially evaluated functions, we substitute the already bound variables with their values:
-```ocaml
->>> let f x y = x * y;;
-- : fun = fun x -> fun y ->
-    x * y
->>> f 2;;
-- : fun = fun y -> 2 * y
+- : int -> int = <fun>
 ```
 
 ## Interpretation.

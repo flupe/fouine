@@ -39,19 +39,22 @@ let rec string_of_value = function
       "[|" ^ (String.concat "; " (List.map string_of_value (Array.to_list vl))) ^ "|]"
   | CTuple vl ->
       "(" ^ (String.concat ", " (List.map string_of_value vl)) ^ ")"
+  (*
   | CConstructor ("(::)", [h; t]) ->
-      "[" ^ (string_of_value h) ^ (string_list t) ^ "]"
+      "[" ^ (string_of_value h) ^ (string_list t) ^ "]" *)
   | CConstructor (name, []) -> name
   | CConstructor (name, vl) ->
       name ^ " (" ^ (String.concat ", " (List.map string_of_value vl)) ^ ")"
   | CMetaClosure _ | CClosure _ | CBClosure _ | CBRec _ -> red "<fun>"
   | CRec _ -> red "<cycle>"
 
+(* 
 and string_list = function
   | CConstructor ("(::)", [h; t]) ->
       "; " ^ (string_of_value h) ^ (string_list t)
   | CConstructor ("[]", []) -> ""
   | x -> string_of_value x
+*)
 
 let print_constant_with f = function
   | Int k -> f (green <| string_of_int k)
