@@ -124,6 +124,9 @@ Please notice that types aren't recursive just yet (We actually spent no time th
 - : int ok = Truc (5)
 >>> Machin [true; false];;
 - : bool list ok = Machin ((::) (true, (::) (false, [])))
+>>> type ('a, 'b) pair = Left of 'a | Right of 'b;;
+>>> Right 5;;
+- : ('_a, int) pair = Right (5)
 ```
 
 In hope of making these types useful, pattern-matching was extended to allow matching on constructors:
