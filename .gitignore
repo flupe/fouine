@@ -2,3 +2,6 @@
 *.native
 *.byte
 _build/
+report.*
+slides.*
+!*.tex

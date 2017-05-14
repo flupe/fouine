@@ -110,7 +110,7 @@ It is possible to restrict the type of an expression by explicitely specifying i
 
 ```ocaml
 >>> (fun x -> x : int -> int);;
-- : int -> int : <fun>
+- : int -> int = <fun>
 ```
 
 ### Union types.

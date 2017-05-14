@@ -1,0 +1,36 @@
+\documentclass[paper=a4, fontsize=11pt]{scrartcl}
+
+\usepackage[utf8]{inputenc}
+\usepackage{fourier}
+\usepackage[cache=false]{minted}
+
+\title{Projet 2 : Fouine}
+\author{Lucas Escot, Romain Liautaud}
+\date{\today}
+
+
+\begin{document}
+
+\maketitle
+
+On dispose d'un environnement de base contenant nos opérateurs binaires et quelques fonctions utilitaires : .
+\begin{minted}{ocaml}
+>>> ref;;
+- : '_a -> '_a ref = <fun>
+>>> (:=);;
+- : '_a ref -> '_a -> unit = <fun>
+\end{minted}
+
+\begin{minted}{ocaml}
+>>> type ('a, 'b) pair = Left of 'a | Right of 'b;;
+>>> type 'a tree = Leaf | Node of 'a * 'a tree * 'a tree;;
+>>> Leaf;;
+- : '_a tree = Leaf
+\end{minted}
+\begin{minted}{ocaml}
+>>> type 'a list = [] | (::) of 'a * 'a list;;
+>>> [1; 2; 3]
+- : int list = (::) (1, (::) (2, (::) (3, [])))
+\end{minted}
+
+\end{document}
