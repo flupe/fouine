@@ -121,7 +121,7 @@ Please notice that types aren't recursive just yet (We actually spent no time th
 ```ocaml
 >>> type 'a ok = Machin of 'a | Truc of int;;
 >>> Truc 5;;
-- : int ok = Truc (5)
+- : '_a ok = Truc (5)
 >>> Machin [true; false];;
 - : bool list ok = Machin ((::) (true, (::) (false, [])))
 >>> type ('a, 'b) pair = Left of 'a | Right of 'b;;
