@@ -12,9 +12,9 @@ type value
   = CConst of Ast.constant
   | CRef of value ref
   | CArray of value array
-  | CList of value list
   | CTuple of value list
   | CMetaClosure of (value -> value)
+  | CConstructor of string * value list
 
   | CClosure of Ast.pattern * Ast.t * value Env.t
   | CRec of Ast.identifier * Ast.t * value Env.t
@@ -31,13 +31,10 @@ exception UncaughtError of value
 let rec equal_types a b =
   match a, b with
   | CRec _, CRec _
-  | CClosure _, CClosure _ 
-  | CList [], CList _
-  | CList _, CList [] -> true
+  | CClosure _, CClosure _ -> true
   | CRef ra, CRef rb -> equal_types !ra !rb
   | CTuple l1, CTuple l2 ->
       List.for_all2 equal_types l1 l2
-  | CList (a :: _), CList (b :: _) -> equal_types a b
   | CConst a, CConst b -> begin match a, b with
     | Int _, Int _
     | Bool _, Bool _
@@ -70,6 +67,8 @@ let rec match_pattern_aux env a b =
       else Env.add id b env
   | PConst p, CConst c when p = c -> env
   | PTuple pl, CTuple cl -> match_list env pl cl
+  | PConstructor (a, pl), CConstructor (b, vl) when a = b ->
+      match_list env pl vl
   | _ -> raise MatchError
 
 and match_list env al bl = 

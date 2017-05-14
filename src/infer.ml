@@ -4,42 +4,109 @@ open Print
 (* type environment *)
 type env = (Ast.identifier * tp) list
 
-let infix_bool = TArrow (TGeneric "a", TArrow (TGeneric "a", TBool))
-
-let base_env : env = 
-  [ "ref", TArrow (TGeneric "a", TRef (TGeneric "a"))
-  ; "incr", TArrow (TRef TInt, TUnit)
-  ; "decr", TArrow (TRef TInt, TUnit)
-  ; "not", TArrow (TBool, TBool)
-  ; "prInt", TArrow (TInt, TInt)
-  ; "prOut", TArrow (TGeneric "a", TUnit)
-  ; "aMake", TArrow (TInt,  TArray TInt)
-
-  ; "+", TArrow (TInt, TArrow (TInt, TInt))
-  ; "-", TArrow (TInt, TArrow (TInt, TInt))
-  ; "~-", TArrow (TInt, TInt) (* infix negation *)
-  ; "*", TArrow (TInt, TArrow (TInt, TInt))
-  ; "/", TArrow (TInt, TArrow (TInt, TInt))
-  ; "mod", TArrow (TInt, TArrow (TInt, TInt))
-
-  ; "!", TArrow (TRef (TGeneric "a"), TGeneric "a")
-  ; ":=", TArrow (TRef (TGeneric "a"), TArrow(TGeneric "a", TUnit))
-  ; "<", infix_bool
-  ; ">", infix_bool
-  ; "<=", infix_bool
-  ; ">=", infix_bool
-  ; "<>", infix_bool
-  ; "=", infix_bool
-  ; "&&", TArrow (TBool, TArrow (TBool, TBool))
-  ; "||", TArrow (TBool, TArrow (TBool, TBool))
-
-  ; "@", TArrow (TList (TGeneric "a"), TArrow (TList (TGeneric "a"), TList (TGeneric "a")))
-  ; "|>", TArrow (TGeneric "a", TArrow (TArrow (TGeneric "a", TGeneric "b"), TGeneric "b" ))
-  ; "@@", TArrow (TArrow (TGeneric "a", TGeneric "b"), TArrow (TGeneric "a", TGeneric "b" ))
-  ]
+(* never do that *)
+let (@>>) x y = TArrow (x, y)
+let (%) id t = TSum (id, [t])
+let (%%) id tl = TSum (id, tl)
+let (??) x = TGeneric x
 
 let count = ref 0
 let reset () = count := 0 
+
+let env : env ref = ref
+  [ "ref",   ??"a" @>> TRef ??"a"
+  ; "incr",  TRef TInt @>> TUnit
+  ; "decr",  TRef TInt @>> TUnit
+  ; "not",   TBool @>> TBool
+  ; "prInt", TInt @>> TInt
+  ; "prOut", ??"a" @>> TUnit
+  ; "aMake", TInt @>>  TArray TInt
+
+  ; "+",   TInt @>> TInt @>> TInt
+  ; "-",   TInt @>> TInt @>> TInt
+  ; "~-",  TInt @>> TInt (* infix negation *)
+  ; "*",   TInt @>> TInt @>> TInt
+  ; "/",   TInt @>> TInt @>> TInt
+  ; "mod", TInt @>> TInt @>> TInt
+
+  ; "!",  TRef ??"a" @>> ??"a"
+  ; ":=", TRef ??"a" @>> ??"a" @>> TUnit
+  ; "<",  ??"a" @>> ??"a" @>> TBool
+  ; ">",  ??"a" @>> ??"a" @>> TBool
+  ; "<=", ??"a" @>> ??"a" @>> TBool 
+  ; ">=", ??"a" @>> ??"a" @>> TBool
+  ; "<>", ??"a" @>> ??"a" @>> TBool
+  ; "=",  ??"a" @>> ??"a" @>> TBool
+  ; "&&", TBool @>> TBool @>> TBool
+  ; "||", TBool @>> TBool @>> TBool
+
+  ; "@",  "list" % ??"a" @>> "list" % ??"a" @>> "list" % ??"a"
+  ; "|>", ??"a" @>> (??"a" @>> ??"b") @>> ??"b"
+  ; "@@", (??"a" @>> ??"b") @>> ??"a" @>> ??"b"
+  ]
+
+let constructors = ref
+  [ "(::)", ([??"a"; "list" % ??"a"], "list" % ??"a")
+  ; "[]", ([], "list" % ??"a")
+  ]
+
+let types = ref
+  [ "int", ([], TInt)
+  ; "bool", ([], TBool)
+  ; "unit", ([], TUnit)
+  ; "array", (["a"], TArray ??"a")
+  ; "ref", (["a"], TRef ??"a")
+  ; "list", (["a"], "list" % ??"a")
+  ]
+
+let rec debug_string = function
+  | TInt -> "TInt"
+  | TBool -> "TBool" 
+  | TUnit -> "TUnit"
+  | TSum (id, tl) ->
+      Printf.sprintf "TSum (\"%s\", [%s])" id (String.concat "; " (List.map debug_string tl))
+  | TGeneric id -> "TGeneric \"" ^ id ^ "\""
+  | TArrow (ta, tb) ->
+      Printf.sprintf "TArrow (%s, %s)" (debug_string ta) (debug_string tb)
+  | TRef t ->
+      Printf.sprintf "TRef (%s)" (debug_string t)
+  | TArray t ->
+      Printf.sprintf "TArray (%s)" (debug_string t)
+  | TTuple tl ->
+      Printf.sprintf "TTuple [%s]" (String.concat "; " (List.map debug_string tl))
+  | TVar { contents = Unbound (id, _) } ->
+      Printf.sprintf "Unbound \"%s\"" id
+  | TVar { contents = Link t } -> debug_string t
+
+(* replace generic types with given association *)
+let rec specialize mem = function
+  | TGeneric id as t ->
+      if List.mem_assoc id mem then
+        List.assoc id mem
+      else t
+  | TArrow (ta, tb) -> TArrow (specialize mem ta, specialize mem tb)
+  | TRef t -> TRef (specialize mem t)
+  | TArray t -> TArray (specialize mem t)
+  | TTuple tl -> TTuple (List.map (specialize mem) tl)
+  | TSum (name, tl) -> TSum (name, List.map (specialize mem) tl)
+  | t -> t
+
+(* takes a type specification and constructs it *)
+let rec build_type = function
+  | SUnbound id -> TGeneric id
+  | SArrow (ta, tb) -> TArrow (build_type ta, build_type tb)
+  | STuple tl -> TTuple (List.map build_type tl)
+  | SSubtype (name, params) ->
+      if List.mem_assoc name !types then begin
+        let (args, tp) = List.assoc name !types in
+        let rec iter mem a b = match a, b with
+          | id :: args, spec :: params -> iter ((id, build_type spec) :: mem) args params
+          | [], [] -> specialize mem tp
+          | _ -> 
+              failwith (Printf.sprintf "Type %s expects %d argument(s) but %d were given"
+                name (List.length args) (List.length params))
+        in iter [] args params
+      end else failwith ("Unbound type " ^ name)
 
 (* generate a new generic type name
  * go through a, b, ..., z, t1, t2, ... *)
@@ -54,11 +121,11 @@ let new_var lvl = TVar (ref (Unbound (new_name (), lvl)))
 
 (* when possible, simplify TVar occurences *)
 let rec prune = function
-  | TList t -> TList (prune t)
+  | TArrow (ta, tb) -> TArrow (prune ta, prune tb)
   | TRef t -> TRef (prune t)
   | TArray t -> TArray (prune t)
-  | TArrow (ta, tb) -> TArrow (prune ta, prune tb)
   | TTuple tl -> TTuple (List.map prune tl)
+  | TSum (name, tl) -> TSum (name, List.map prune tl)
   | TVar { contents = Link t } -> prune t
   | t -> t
 
@@ -66,6 +133,8 @@ let rec prune = function
  * throw exception if it does, return unit otherwise *)
 let rec occurs tvr = function
   | TVar tvr' when tvr == tvr' -> failwith "Recursive occurence of type."
+  | TRef t -> occurs tvr t
+  | TArray t -> occurs tvr t
   (* if both type variables are unbound, we grant ownership of the second
    * to the level of the first *)
   | TVar ({ contents = Unbound (id, lvl') } as tvr') ->
@@ -74,25 +143,24 @@ let rec occurs tvr = function
         | _ -> lvl'
       in tvr' := Unbound (id, min_lvl)
   | TVar { contents = Link t } -> occurs tvr t
-  | TList t -> occurs tvr t
-  | TRef t -> occurs tvr t
-  | TArray t -> occurs tvr t
   | TArrow (ta, tb) -> occurs tvr ta; occurs tvr tb
+  | TSum (_, tl)
   | TTuple tl -> List.iter (occurs tvr) tl
   | _ -> ()
 
+(* TODO: TConst types shouldn't rely solely on names, since you can rebind type_names while leaving them intact *)
 (* when possible, unifies two given types *)
 let rec unify ta tb =
   if ta == tb then () (* physical equality *)
   else match ta, tb with
   (* straightforward unification *)
-  (* | TConst a, TConst b when a = b -> () *)
+  | TRef ta, TRef tb -> unify ta tb
+  | TArray ta, TArray tb -> unify ta tb
+  | TSum (a, tla), TSum (b, tlb) ->
+      List.iter2 unify tla tlb
   | TArrow (tla, tra), TArrow (tlb, trb) ->
       unify tla tlb;
       unify tra trb
-  | TList ta, TList tb -> unify ta tb
-  | TArray ta, TArray tb -> unify ta tb
-  | TRef ta, TRef tb -> unify ta tb
   | TTuple tla, TTuple tlb -> List.iter2 unify tla tlb
   | TVar { contents = Link ta}, tb
   | ta, TVar { contents = Link tb} -> unify ta tb
@@ -105,39 +173,49 @@ let rec unify ta tb =
 
   | _ -> failwith (Printf.sprintf "Cannot unify %s with %s." (Beautify.string_of_type ta ~clean:true) (Beautify.string_of_type tb ~clean:true))
 
+(* TODO: same really, find a way to not generalize mutable containers *)
 (* quantify a given type at a specific level *)
 let rec generalize level = function
-  | TList t -> TList (generalize level t)
   | TArrow (ta, tb) -> TArrow (generalize level ta, generalize level tb)
   | TTuple tl -> TTuple (List.map (generalize level) tl)
+  | TSum (name, tl) -> TSum (name, List.map (generalize level) tl)
   (* you can only generalize an unbound type in an upper level *)
   | TVar { contents = Unbound (id, level') } when level' > level -> TGeneric id
   | TVar { contents = Link t } -> generalize level t
   | t -> t
 
 (* replace generalized types with new unbound vars *)
-let instanciate level t =
-  let rec aux mem = function
-    | TGeneric id -> begin
-        try (List.assoc id mem, mem)
-        with Not_found ->
-          let tv = new_var level in
-          (tv, (id, tv) :: mem)
-      end
-    | TVar { contents = Link t } -> aux mem t
-    | TList t -> let (t, mem) = aux mem t in TList t, mem
-    | TRef t -> let (t, mem) = aux mem t in TRef t, mem
-    | TArray t -> let (t, mem) = aux mem t in TArray t, mem
-    | TArrow (ta, tb) ->
-        let (ta, mem) = aux mem ta in
-        let (tb, mem) = aux mem tb in
-        TArrow (ta, tb), mem
-    | TTuple tl ->
-        let step (tl, mem) t = let (t, mem) = aux mem t in (t :: tl, mem) in
-        let (tl, mem) = List.fold_left step ([], mem) tl in
-        TTuple (List.rev tl), mem
-    | t -> t, mem
-  in fst (aux [] t)
+let rec instanciate_aux mem level = function
+  | TGeneric id -> begin
+      try List.assoc id mem, mem
+      with Not_found ->
+        let tv = new_var level in
+        tv, (id, tv) :: mem
+    end
+  | TVar { contents = Link t } -> instanciate_aux mem level t
+  | TRef t -> let (t, mem) = instanciate_aux mem level t in TRef t, mem
+  | TArray t -> let (t, mem) = instanciate_aux mem level t in TArray t, mem
+  | TArrow (ta, tb) ->
+      let (ta, mem) = instanciate_aux mem level ta in
+      let (tb, mem) = instanciate_aux mem level tb in
+      TArrow (ta, tb), mem
+  | TTuple tl ->
+      let step (tl, mem) t = let (t, mem) = instanciate_aux mem level t in (t :: tl, mem) in
+      let (tl, mem) = List.fold_left step ([], mem) tl in
+      TTuple (List.rev tl), mem
+  | TSum (name, tl) ->
+      let step (tl, mem) t = let (t, mem) = instanciate_aux mem level t in (t :: tl, mem) in
+      let (tl, mem) = List.fold_left step ([], mem) tl in
+      TSum (name, List.rev tl), mem
+  | t -> t, mem
+
+let instanciate level t = fst (instanciate_aux [] level t)
+
+let instanciate_list mem level tl =
+  let step t (acc, mem) =
+    let t', mem' = instanciate_aux mem level t in
+    (t' :: acc, mem')
+  in List.fold_right step tl ([], mem)
 
 let type_of_const = function
   | Int _ -> TInt
@@ -151,28 +229,28 @@ let rec match_type level env tp = function
       env
   (* TODO: check multiple occurences *)
   | PField id -> (id, tp) :: env
+
   | PTuple pl ->
       let tl = List.map (fun _ -> new_var level) pl in unify (TTuple tl) tp;
       List.fold_left2 (fun env p t -> match_type level env t p) env pl tl
 
-let rec create_type_pattern env level = function
-  | PAll -> new_var level, env
-  | PConst c -> type_of_const c, env
-  (* TODO: check multiple occurences *)
-  | PField id -> let t = new_var level in t, (id, t) :: env
-  | PTuple pl -> 
-      let step (tl, env) p = let t, env = create_type_pattern env level p in (t :: tl, env) in
-      let tl, env = List.fold_left step ([], env) pl in
-      TTuple (List.rev tl), env
+  | PConstructor (name, pl) ->
+      if List.mem_assoc name !constructors then begin
+        let params, tr = List.assoc name !constructors in
+        let params', mem = instanciate_list [] level params in
+        let tr', _ = instanciate_aux mem level tr in
+        unify tr' tp;
+        List.fold_left2 (match_type level) env params' pl
+      end
+      else failwith ("Unbound constructor " ^ name)
 
 let rec type_of env expr = 
   reset ();
   let rec infer env level = function
-    | Empty -> TList (new_var level)
-
-    | Var id ->
-        if List.mem_assoc id env then instanciate level (List.assoc id env)
-        else failwith ("Unbound value " ^ id)
+    | Var id -> begin
+        try instanciate level (List.assoc id env)
+        with _ -> failwith ("Unbound value " ^ id)
+      end
 
     | Const c -> type_of_const c
 
@@ -239,16 +317,13 @@ let rec type_of env expr =
         unify (TArray t) t_a;
         t
 
-    | Cons (a, b) ->
-        let t_a = infer env level a in
-        let t_b = new_var level in
-        unify (TList t_b) (infer env level b);
-        unify t_a t_b;
-        TList t_b
-
-    | Constraint (e, t) ->
-        let t = instanciate level t in
+    | Constraint (e, spec) ->
+        let t = instanciate level (build_type spec) in
         let t' = infer env level e in
+        (* 
+        print_endline (debug_string t);
+        print_endline (debug_string t');
+        *)
         unify t t';
         t
 
@@ -257,9 +332,43 @@ let rec type_of env expr =
         List.iter (fun e -> unify t (infer env level e)) l;
         TArray t
 
+    | Constructor (name, p) ->
+        try match p, (List.assoc name !constructors) with
+          | [], ([], t) -> instanciate level t
+          | [e], ([p], tr) ->
+              let t = infer env level e in
+              let tr, mem = instanciate_aux [] level tr in
+              let tdef, _ = instanciate_aux mem level p in
+              unify t tdef;
+              tr
+          | e, ([p], tr) ->
+              let t = infer env level (Tuple e) in
+              let tr, mem = instanciate_aux [] level tr in
+              let tdef, _ = instanciate_aux mem level p in
+              unify t tdef;
+              tr
+          | e, (def, tr) ->
+              let ts = List.map (infer env level) e in
+              let tr, mem = instanciate_aux [] level tr in
+              let tdef, _ = instanciate_list mem level def in
+              if List.length ts = List.length tdef then begin
+                List.iter2 unify ts tdef;
+                tr
+              end else failwith (Printf.sprintf "Constructor %s expects %d argument(s) but %d were given" name (List.length tdef) (List.length ts))
+        with Not_found -> failwith ("Unbound constructor " ^ name)
+
   in prune (infer env 1 expr)
 
-let type_of_stmt env = function
+let declare_type name params = function
+  | Sum cl ->
+      let params' = List.map (fun x -> TGeneric x) params in
+      let t = TSum (name, params') in
+      List.iter (fun (id, tps) -> constructors := (id, (List.map build_type tps, t)) :: !constructors) cl;
+      types := (name, (params, t)) :: !types
+  | Alias spec ->
+      types := (name, (params, build_type spec)) :: !types
+
+let type_of_stmt = function
   | Decl (p, e) ->
       let t = generalize 0 (type_of !env e) in
       env := match_type 0 !env t p;
@@ -267,7 +376,8 @@ let type_of_stmt env = function
 
   | DeclRec (id, e) ->
       let t = new_var 1 in
-      let t' = type_of ((id, t) :: !env) e in
+      let env' = (id, t) :: !env in
+      let t' = type_of env' e in
       unify t t';
       let t = generalize 0 t in
       env := (id, t) :: !env;

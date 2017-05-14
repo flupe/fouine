@@ -13,18 +13,15 @@ let bind id v =
 
 let eval k kE e : unit =
   let rec step env k kE = function
-    | Empty -> k <| CList []
     | Const c -> k <| CConst c
 
     | Var id ->
         k <|
-        if Env.mem id env then
-          Env.find id env
+        if Env.mem id env then Env.find id env
         else raise InterpretationError
 
     | IfThenElse (cond, truthy, falsy) ->
-        let k' c = 
-          match c with
+        let k' = function
           | CConst (Bool b) ->
               if b then step env k kE truthy
               else step env k kE falsy
@@ -39,7 +36,7 @@ let eval k kE e : unit =
 
     (* no pattern matching for the 1rst token of recursive definitions *)
     | LetRec (id, e, fn) -> begin
-        let f = CRec(id, e, env) in
+        let f = CRec (id, e, env) in
         let env' = Env.add id f env in
         step env' k kE fn
       end
@@ -80,14 +77,12 @@ let eval k kE e : unit =
               let k' p =
                 match p with
                 | CConst (Int p) when p >= 0 ->
-                  if p >= Array.length a then
-                    raise InterpretationError
-                  else
-                    (* todo: type check *)
-                    let k' v =
-                      a.(p) <- v;
-                      k (CConst Unit)
-                    in step env k' kE v
+                    if p >= Array.length a then raise InterpretationError
+                    else
+                      let k' v =
+                        a.(p) <- v;
+                        k (CConst Unit)
+                      in step env k' kE v
                 | _ -> raise InterpretationError
               in step env k' kE key
           | _ -> raise InterpretationError
@@ -100,28 +95,12 @@ let eval k kE e : unit =
               let k' p =
                 match p with
                 | CConst (Int p) when p >= 0 ->
-                  if p >= Array.length a then
-                    raise InterpretationError
-                  else
-                    k <| a.(p)
+                    if p >= Array.length a then raise InterpretationError
+                    else k <| a.(p)
                 | _ -> raise InterpretationError
               in step env k' kE key
           | _ -> raise InterpretationError
         in step env k' kE arr
-
-    | Cons (a, b) ->
-        let k' a =
-          let k' = function
-            | CList l -> begin match l with
-                | [] -> k <| CList [a]
-                | x :: _ as t ->
-                    if Shared.equal_types a x then
-                      k <| CList (a :: t)
-                    else raise InterpretationError
-              end
-                | _ -> raise InterpretationError
-          in step env k' kE b
-        in step env k' kE a
 
     | Raise e ->
         step env kE kE e
@@ -150,6 +129,18 @@ let eval k kE e : unit =
         let k' vl =
           k <| CArray (Array.of_list vl)
         in eval_list env k' kE vl
+
+    | Constructor (name, vl) ->
+        (* for parsing tuples *)
+        let k' l =
+          let params, _ = List.assoc name !Infer.constructors in
+          k <|
+          match params with
+          | [_] -> CConstructor (name, [CTuple l])
+          | _ -> CConstructor (name, l)
+        in eval_list env k' kE vl
+
+    | _ -> raise InterpretationError
 
   and eval_list env k kE = function
     | h :: t ->

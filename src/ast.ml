@@ -5,18 +5,24 @@ type level = int
 (* types supported by the fouine language *)
 type tp =
   | TInt | TBool | TUnit
-  (* | TConst of id *) (* this constructor will be used if we later allow type creation *)
+  | TSum of id * tp list
   | TGeneric of id (* named quantified type variable *)
-  | TList of tp
+  | TArrow of tp * tp
   | TRef of tp
   | TArray of tp
-  | TArrow of tp * tp
   | TTuple of tp list
   | TVar of tvar ref
 
 and tvar =
   | Unbound of id * level
   | Link of tp
+
+(* type of fouine expressions specifying fouine types *)
+type tp_spec = 
+  | SUnbound of id
+  | SArrow of tp_spec * tp_spec
+  | STuple of tp_spec list
+  | SSubtype of id * tp_spec list
 
 type constant =
   | Int  of int
@@ -28,13 +34,14 @@ type pattern =
   | PConst of constant
   | PField of identifier
   | PTuple  of pattern list
+  | PConstructor of identifier * pattern list
  
 type t =
-  | Empty
   | Var  of identifier
   | Const of constant
   | Tuple of t list
   | Array of t list
+  | Constructor of string * t list
 
   | Let of pattern * t * t
   | LetRec of identifier * t * t
@@ -47,11 +54,17 @@ type t =
   | Seq of t * t
   | ArraySet of t * t * t
   | ArrayRead of t * t
-  | Cons of t * t
 
-  | Constraint of t * tp
+  | Constraint of t * tp_spec
+
+type constructor = identifier * tp_spec list
+
+type type_decl =
+  | Alias of tp_spec
+  | Sum of constructor list
 
 type stmt =
+  | TypeDef of id list * identifier * type_decl
   | Decl of pattern * t
   | DeclRec of identifier * t
   | Expr of t

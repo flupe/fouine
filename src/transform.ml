@@ -14,7 +14,6 @@ let name () =
   "x" ^ (string_of_int n)
 
 let rec rem_exceptions = function
-  | Empty
   | Var _
   | Const _ as x -> make_success_fn <| Call (Var "k", x)
 
@@ -99,6 +98,7 @@ let rec rem_exceptions = function
           [ Fun (PField "a", Call (rem_exceptions b, def_args))
           ; Var "kE" ])
 
+  (*
   | Cons (a, b) ->
       make_fn <| Call (rem_exceptions a, Tuple
         [ Fun (PField "x", Call (rem_exceptions b, Tuple
@@ -107,6 +107,7 @@ let rec rem_exceptions = function
           ]))
         ; Var "kE"
         ])
+        *)
 
   | x -> make_success_fn <| Call (Var "k", x)
 

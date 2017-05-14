@@ -16,7 +16,6 @@ let rec eval_expr env expr =
     | x -> x
 
   and aux env = function
-    | Empty -> CList []
     | Const c -> CConst c
 
     | Var id ->
@@ -95,25 +94,14 @@ let rec eval_expr env expr =
         ignore <| aux env l;
         aux env r
 
-    | Cons (a, b) ->
-        let a = aux env a in
-        let b = aux env b in begin
-          match b with
-          | CList l -> begin match l with
-              | [] -> CList [a]
-              | x :: _ as t ->
-                  if Shared.equal_types a x then CList (a :: t)
-                  else raise InterpretationError
-            end
-          | _ -> raise InterpretationError
-        end
-
     | Tuple vl -> CTuple (List.map (aux env) vl)
 
     | Constraint (e, _) -> aux env e
 
     | Array l ->
         CArray (Array.of_list (List.map (aux env) l))
+
+    | Constructor _ -> CConst Unit
 
     | TryWith _
     | Raise _ -> failwith "Exceptions not supported"
@@ -135,7 +123,7 @@ let make_interp exceptions references = (module struct
             )
         | _, x -> x
       in
-      Env.mapi (fun name v -> rem (List.assoc name Infer.base_env) v ) Base.base
+      Env.mapi (fun name v -> rem (List.assoc name !Infer.env) v ) Base.base
     else
       Base.base
   end

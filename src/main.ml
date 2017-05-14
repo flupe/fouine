@@ -38,17 +38,17 @@ let () =
     | Expr e -> Let (PAll, e, b)
     | Decl (p, e) -> Let (p, e, b)
     | DeclRec (id, e) -> LetRec (id, e, b)
+    | _ -> b
   in
 
   let combine_prog prog =
     List.fold_right combine_stmt prog (Const Unit)
   in
 
-  (* Compile the input, and output it to a bytecode file. *)
   if !interm <> "" then begin
     let prog = parse_input () in
     let combined = combine_prog prog in
-    let _ = Infer.type_of Infer.base_env combined in
+    let _ = Infer.type_of !Infer.env combined in
     let bytecode = Compiler.compile <| combined in
 
     if !debug then begin
@@ -83,7 +83,7 @@ let () =
   else if !machine then begin
     let prog = parse_input () in
     let combined = combine_prog prog in
-    let _ = Infer.type_of Infer.base_env combined in
+    let _ = Infer.type_of !Infer.env combined in
     let bytecode = Compiler.compile <| combined in
 
     if !debug then begin
@@ -106,9 +106,6 @@ let () =
 
   (* Start an interpretation REPL. *)
   else begin
-    (* The default type environment. *)
-    let t_env = ref Infer.base_env in
-
     (* We fetch the module with which to interpret our input. *)
     let (module Interp) = begin
       (* if we plan on doing transformartions on our code
@@ -122,15 +119,15 @@ let () =
     (* Execute a given statement. *)
     let rec exec_stmt = function
       | Expr e as s ->
-          let t = Infer.type_of_stmt t_env s in
+          let t = Infer.type_of_stmt s in
           Interp.eval (Beautify.log None t) error e
 
       | Decl (p, e) as s ->
-          ignore <| Infer.type_of_stmt t_env s;
+          ignore <| Infer.type_of_stmt s;
           let success v = 
             let values = match_pattern p v in
             let aux id v =
-              Beautify.log (Some id) (List.assoc id !t_env) v;
+              Beautify.log (Some id) (List.assoc id !Infer.env) v;
               Interp.bind id v
             in
             Env.iter aux values;
@@ -138,12 +135,14 @@ let () =
 
       | DeclRec (id, e) as s ->
           let e = LetRec (id, e, Var id) in
-          let t = Infer.type_of_stmt t_env s in
+          let t = Infer.type_of_stmt s in
           let success v =
             Beautify.log (Some id) t v;
             Interp.bind id v
           in
           Interp.eval success error e
+
+      | TypeDef (params, name, decl) -> Infer.declare_type name params decl
       in
 
     let rec run_prog = function

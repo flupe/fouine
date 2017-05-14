@@ -26,6 +26,8 @@ rule token = parse
   | 'E' { E }
   | "rec" { REC }
   | "mod" { MOD }
+  | "type" { TYPE }
+  | "of" { OF }
   | "->" { RARROW }
   | "<-" { LARROW }
   | ":=" { SETREF }
@@ -39,6 +41,7 @@ rule token = parse
   | '[' { LBRACKET }
   | ']' { RBRACKET }
   | '-' { MINUS }
+  | '*' { STAR }
 
   | '=' { EQ }
 
@@ -60,6 +63,7 @@ rule token = parse
 
   | digit+ as s { INT (int_of_string s) }
   | ['_' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9' '\'']* as i { IDENT (i) }
+  | ['A'-'Z']['_' 'A'-'Z' 'a'-'z' '0'-'9' '\'']* as i { CONSTRUCTOR (i) }
   | blank { token lexbuf }
 
   | eof  { raise Eof }

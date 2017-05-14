@@ -19,13 +19,12 @@ let rec string_of_value_type = function
   | CArray _ -> cyan "'a array"
   | CTuple tl ->
       "(" ^ (String.concat " * " <| List.map string_of_value_type tl) ^ ")"
-  | CList [] -> cyan "'a" ^ " list"
-  | CList (a :: _) -> Printf.sprintf "%s list" (string_of_value_type a)
   | CMetaClosure _ -> red "builtin"
   | CClosure _ -> blue "fun"
   | CRec _ -> blue "rec fun"
   | CBClosure _ -> blue "fun"
   | CBRec _ -> blue "rec fun"
+  | CConstructor _ -> "<constructor>"
 
 (* string_of_const : Ast.constant -> string *)
 let string_of_const = function
@@ -40,13 +39,19 @@ let rec string_of_value = function
       "[|" ^ (String.concat "; " (List.map string_of_value (Array.to_list vl))) ^ "|]"
   | CTuple vl ->
       "(" ^ (String.concat ", " (List.map string_of_value vl)) ^ ")"
-  | CList vl -> 
-      "[" ^ (String.concat "; " (List.map string_of_value vl)) ^ "]"
-  | CMetaClosure _
-  | CClosure _
-  | CBClosure _
-  | CBRec _ -> red "<fun>"
-  | CRec _ -> red "<rec>"
+  | CConstructor ("(::)", [h; t]) ->
+      "[" ^ (string_of_value h) ^ (string_list t) ^ "]"
+  | CConstructor (name, []) -> name
+  | CConstructor (name, vl) ->
+      name ^ " (" ^ (String.concat ", " (List.map string_of_value vl)) ^ ")"
+  | CMetaClosure _ | CClosure _ | CBClosure _ | CBRec _ -> red "<fun>"
+  | CRec _ -> red "<cycle>"
+
+and string_list = function
+  | CConstructor ("(::)", [h; t]) ->
+      "; " ^ (string_of_value h) ^ (string_list t)
+  | CConstructor ("[]", []) -> ""
+  | x -> string_of_value x
 
 let print_constant_with f = function
   | Int k -> f (green <| string_of_int k)
@@ -61,6 +66,16 @@ let rec print_pattern = function
   | PField id -> print_string id
   | PTuple pl ->
       print_string "(";
+      List.iteri (fun i p ->
+        if i <> 0 then print_string ", ";
+        print_pattern p) pl;
+      print_string ")";
+  | PConstructor (name, []) -> print_string name;
+  | PConstructor (name, [x]) ->
+      print_string (name ^ " ");
+      print_pattern x;
+  | PConstructor (name, pl) ->
+      print_string (name ^ " (");
       List.iteri (fun i p ->
         if i <> 0 then print_string ", ";
         print_pattern p) pl;
@@ -86,12 +101,6 @@ and print_value_aux env i o e =
         if i <> 0 then pr ", ";
         print_value_aux env true (o ^ indent) v) vl;
       pr ")";
-  | CList vl ->
-      p i o "[";
-      List.iteri (fun i v ->
-        if i <> 0 then pr "; ";
-        print_value_aux env true (o ^ indent) v) vl;
-      pr "]";
   | CClosure (pattern, e, env) ->
       pr (blue "fun ");
       print_pattern pattern;
@@ -99,6 +108,7 @@ and print_value_aux env i o e =
       print_aux env true (o ^ indent) e
   | CRec (_, e, _) ->
       print_aux env i o e
+  | CConstructor _ as s -> pr (string_of_value s)
   | CMetaClosure _
   | CBClosure _
   | CBRec _ -> pr "-"
@@ -106,8 +116,7 @@ and print_value_aux env i o e =
 and esc env inline offset t =
   match t with
   | Const _
-  | Tuple _
-  | Empty ->
+  | Tuple _ ->
       print_aux env inline offset t
   | _ ->
       p inline offset "(";
@@ -119,7 +128,6 @@ and print_aux env i o e =
   let print_aux = print_aux env in
   let esc = esc env in
   match e with
-  | Empty -> p i o "[]"
   | Const c -> 
       print_constant_with (p i o) c
 
@@ -184,11 +192,6 @@ and print_aux env i o e =
       print_string ".(";
       esc true (o ^ indent) key; print_string ")"
 
-  | Cons (a, b) ->
-      esc i o a;
-      print_string " :: ";
-      esc true o b
-
   | Tuple vl ->
       p i o "(";
       List.iteri (fun i v ->
@@ -199,9 +202,14 @@ and print_aux env i o e =
   | Array l ->
       p i o "[|";
       List.iteri (fun i v ->
-        if i <> 0 then print_string ", ";
+        if i <> 0 then print_string "; ";
         print_aux true (o ^ indent) v) l;
       print_string "|]"
+
+  | Constructor (name, []) -> p i o name
+  | Constructor (name, el) ->
+      p i o (name ^ " ");
+      esc true (o ^ indent) (Tuple el)
 
   | Constraint (e, tp) -> print_aux i o e
 
@@ -215,15 +223,20 @@ let rec string_of_type ?clean:(c = false) t =
     | TInt -> col green "int"
     | TBool -> col yellow "bool"
     | TUnit -> col magenta "unit"
-    | TRef t -> Printf.sprintf "%s ref" (aux true t)
-    (* | TConst name -> name *)
+    | TRef t -> Printf.sprintf "%s %s" (aux true t) (col red "ref")
+    | TArray t -> Printf.sprintf "%s %s" (aux true t) (col cyan "array")
+    | TSum (name, []) -> name
+    | TSum (name, tl) ->
+        let param = match tl with
+        | [x] -> aux true x
+        | _ -> "(" ^ (String.concat ", " (List.map (aux false) tl)) ^ ")"
+      in
+      Printf.sprintf "%s %s" param name
     | TGeneric id -> col cyan ("'" ^ id)
     | TVar { contents = Unbound (id, _) } -> col cyan ("'_" ^ id)
     | TVar { contents = Link t } -> aux enclosed t
     | t -> begin
         Printf.sprintf (if enclosed then "(%s)" else "%s") @@ match t with
-        | TList t -> Printf.sprintf "%s list" (aux true t)
-        | TArray t -> Printf.sprintf "%s array" (aux true t)
         | TArrow (ta, tb) -> Printf.sprintf "%s -> %s" (aux true ta) (aux false tb)
         | TTuple tl -> String.concat " * " (List.map (aux true) tl)
         | _ -> ""

@@ -9,7 +9,6 @@ exception UnimplementedError
   to be read by the virtual machine implemented in the `Secd` module. *)
 let compile e =
   let rec aux = function
-    | Empty   -> []
     | Var x   -> [BAccess x]
     | Const c -> [BConst c]
 

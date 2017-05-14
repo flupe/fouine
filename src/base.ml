@@ -37,7 +37,7 @@ let base =
 
     ; "!", meta (function CRef x -> !x | _ -> raise TypeError)
     ; ":=", meta (function 
-        | CRef r -> meta (fun x -> if equal_types x !r then (r := x; CConst Unit) else raise TypeError)
+        | CRef r -> meta (fun x -> r := x; CConst Unit)
         | _ -> raise TypeError)
     ; "+", int_binop (+)
     ; "-", int_binop (-)
@@ -56,11 +56,10 @@ let base =
     ; "|>", meta (fun x -> meta (function CMetaClosure f -> f x | _ -> raise TypeError))
     ; "@@", meta (function CMetaClosure f -> meta (fun x -> f x) | _ -> raise TypeError)
     ; "@", meta (fun a -> meta (fun b ->
-        match a, b with
-        | CList ([] as a), CList b
-        | CList a, CList ([] as b) -> CList (a @ b)
-        | CList ((a :: _) as ta), CList ((b :: _) as tb) ->
-            if equal_types a b then CList (ta @ tb)
-            else raise TypeError
-        | _ -> raise TypeError))
+        let rec aux = function
+          | CConstructor ("[]", _) -> b
+          | CConstructor ("(::)", [h; t]) -> CConstructor ("(::)", [h; aux t])
+          | _ -> raise TypeError
+        in aux a
+      ))
     ]

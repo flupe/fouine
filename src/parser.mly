@@ -5,16 +5,12 @@
   let mk_infix x op y = Call (Call (Var op, x), y)
   let mk_prefix op x = Call (Var op, x)
 
-  let atomic_types =
-    [ "int", TInt
-    ; "bool", TBool
-    ; "unit", TUnit
-    ]
-
   exception UnknownTypeHint
+  exception SyntaxError
 %}
 
 %token <string> IDENT
+%token <string> CONSTRUCTOR
 
 %token <string> PREFIX
 %token <string> INFIX0
@@ -29,12 +25,13 @@
 %token LET IN IF THEN ELSE DELIM FUN RARROW REC
 %token MINUS MOD EQ
 %token UNDERSCORE COMMA
-%token SQUOTE BAR
+%token SQUOTE BAR TYPE OF STAR
 
 %token TRUE FALSE
 %token TRY WITH RAISE E
 %token SETREF CONS
 %token DOT LARROW COLON
+%token FUNCAPP
 
 %start main
 
@@ -54,36 +51,46 @@
 %right INFIX4      (* @... ^... *)
 %right CONS
 %left MINUS INFIX3 (* +... -... *)
-%left MOD INFIX2   (* *... /... %... mod *)
+%left MOD INFIX2 STAR   (* *... /... %... mod *)
 %right INFIX1      (* **... *)
 %nonassoc UMINUS
 (* function application *)
+%nonassoc CONSTRUCTOR
 %nonassoc INFIX0   (* #... *)
 %nonassoc DOT
 %nonassoc PREFIX
 
 %%
 
+integer: INT { Int $1 }
+
 boolean:
   | TRUE { Bool true }
   | FALSE { Bool false }
 
-integer:
-  | INT { Int $1 }
+comma_separated_type_spec:
+  | type_spec { [$1] }
+  | comma_separated_type_spec COMMA type_spec { $3 :: $1 }
 
-type_expr:
-  (* todo : n-uples *)
-  | type_expr RARROW type_expr { TArrow ($1, $3) }
-  | LPAREN type_expr RPAREN { $2 }
-  | SQUOTE IDENT { TGeneric $2 }
-  | IDENT { List.assoc $1 atomic_types }
-  | type_expr IDENT {
-      match $2 with
-      | "list" -> TList $1 
-      | "ref" -> TRef $1 
-      | "array" -> TArray $1
-      | _ -> raise UnknownTypeHint
-    }
+star_separated_type_spec:
+  | enclosed_type_spec { [$1] }
+  | star_separated_type_spec STAR enclosed_type_spec { $3 :: $1 }
+
+type_params: 
+  | { [] }
+  | enclosed_type_spec { [$1] }
+  | LPAREN comma_separated_type_spec RPAREN { $2 }
+
+enclosed_type_spec:
+  | LPAREN type_spec RARROW type_spec RPAREN { SArrow ($2, $4) }
+  | LPAREN type_spec RPAREN { $2 }
+  | SQUOTE IDENT { SUnbound $2 }
+  | type_params IDENT { SSubtype ($2, $1) }
+
+type_spec:
+  | star_separated_type_spec STAR enclosed_type_spec { STuple (List.rev ($3 :: $1)) }
+  | enclosed_type_spec RARROW type_spec { SArrow ($1, $3) }
+  | enclosed_type_spec { $1 }
 
 unit:
   | LPAREN RPAREN { Unit }
@@ -97,6 +104,10 @@ constant:
 array_access:
   | enclosed DOT LPAREN seq_expr RPAREN { $1, $4 }
 
+comma_pattern_list:
+  | pattern { [$1] }
+  | comma_pattern_list COMMA pattern { $3 :: $1 }
+
 pattern:
   | l = separated_nonempty_list(COMMA, pattern_enclosed) {
       match l with
@@ -104,11 +115,21 @@ pattern:
       | _ -> PTuple l
     }
 
+  | constructor pattern_enclosed {
+      PConstructor ($1,
+        match $2 with
+        | PTuple l -> l
+        | x -> [x]
+      )
+  }
+  | pattern_enclosed CONS pattern { PConstructor ("(::)", [$1; $3]) }
+
 pattern_list:
   | l = nonempty_list(pattern_enclosed) { l }
 
 pattern_enclosed:
   | UNDERSCORE    { PAll }
+  | constructor   { PConstructor ($1, []) }
   | constant      { PConst $1 }
   | ident        { PField $1 }
   | LPAREN pattern RPAREN { $2 }
@@ -142,10 +163,9 @@ semi_expr_list:
 enclosed:
   | BEGIN seq_expr END { $2 }
   | LPAREN seq_expr RPAREN { $2 }
-  | LPAREN seq_expr COLON type_expr RPAREN { Constraint ($2, $4) }
-  | LBRACKET RBRACKET { Empty }
+  | LPAREN seq_expr COLON type_spec RPAREN { Constraint ($2, $4) }
   | LBRACKET semi_expr_list RBRACKET {
-      List.fold_left (fun e x -> Cons (x, e)) Empty $2
+      List.fold_left (fun e x -> Constructor ("(::)", [x; e])) (Constructor ("[]", [])) $2
     }
   | LBRACKET BAR semi_expr_list BAR RBRACKET { Array (List.rev $3) }
   | ident { Var $1 }
@@ -155,13 +175,45 @@ enclosed:
       let arr, e = $1 in
       ArrayRead (arr, e)
     }
+  | constructor { Constructor ($1, []) }
 
 main:
   | statement DELIM { $1 }
 
 statement:
   | global_lets { $1 }
+  | type_decl { [$1] }
   | seq_expr { [ Expr $1 ] }
+
+comma_separated_type_params_desc:
+  | SQUOTE IDENT { [$2] }
+  | comma_separated_type_params_desc COMMA SQUOTE IDENT { $4 :: $1 }
+
+type_params_desc:
+  | { [] }
+  | SQUOTE IDENT { [$2] }
+  | LPAREN comma_separated_type_params_desc RPAREN { List.rev $2 }
+
+constructor:
+  | CONSTRUCTOR { $1 }
+  | LBRACKET RBRACKET { "[]" }
+  | LPAREN CONS RPAREN { "(::)" }
+
+constr_def:
+  | constructor { ($1, []) }
+  | constructor OF star_separated_type_spec { ($1, List.rev $3) }
+
+constr_list:
+  | constr_def { [$1] }
+  | BAR constr_def { [$2] }
+  | constr_list BAR constr_def { $3 :: $1 }
+
+type_def:
+  | type_spec { Alias $1 }
+  | constr_list { Sum (List.rev $1) }
+
+type_decl:
+  | TYPE type_params_desc IDENT EQ type_def { TypeDef ($2, $3, $5) }
 
 global_lets:
   | { [] }
@@ -187,9 +239,17 @@ comma_list:
 expr:
   | comma_list %prec below_COMMA { Tuple (List.rev $1) }
 
-  /* function calls */
   | args = enclosed+ {
-      List.fold_left (fun e a -> Call(e, a)) (hd args) (tl args)
+      List.fold_left (fun e a ->
+        match e with
+        | Constructor (name, []) -> Constructor (name,
+            match a with
+            | Tuple l -> l
+            | x -> [x]
+          )
+        | Constructor _ -> raise SyntaxError
+        | _ -> Call(e, a)
+      ) (hd args) (tl args)
     }
 
   | LET pattern EQ seq_expr IN seq_expr { Let ($2, $4, $6) }
@@ -211,6 +271,14 @@ expr:
   | TRY seq_expr WITH E pattern RARROW seq_expr { TryWith ($2, $5, $7) }
   | RAISE LPAREN E enclosed RPAREN { Raise $4 }
 
+  (* 
+  | CONSTRUCTOR enclosed {
+      match $2 with
+      | Tuple l -> Constructor ($1, l)
+      | x -> Constructor ($1, [x])
+    }
+    *)
+
   | array_access LARROW expr {
       let arr, key = $1 in
       ArraySet (arr, key, $3)
@@ -222,7 +290,8 @@ expr:
       | x -> mk_prefix "~-" x
     }
 
-  | expr CONS expr   { Cons ($1, $3) }
+  | expr CONS expr   { Constructor ("(::)", [$1; $3]) }
+  | expr STAR expr   { mk_infix $1 "*" $3 }
   | expr MOD expr    { mk_infix $1 "mod" $3 }
   | expr EQ expr     { mk_infix $1 "=" $3 }
   | expr MINUS expr  { mk_infix $1 "-" $3 }
