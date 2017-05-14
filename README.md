@@ -104,6 +104,15 @@ val a : ('_b -> '_b) ref = { contents = <fun> }
 - : (int -> int) ref = { contents = <fun> }
 ```
 
+### Type constraints.
+
+It is possible to restrict the type of an expression by explicitely specifying it, using the dedicated `(expr : type)` syntax. Parens are required.
+
+```ocaml
+>>> (fun x -> x : int -> int);;
+- : int -> int : <fun>
+```
+
 ### Union types.
 
 For the last submission, we added the ability to define user-land union types. Just as in OCaml, those types can be polymorphic and be parametrized by several type variables.
@@ -114,7 +123,7 @@ Please notice that types aren't recursive just yet (We actually spent no time th
 >>> Truc 5;;
 - : int ok = Truc (5)
 >>> Machin [true; false];;
-- : bool list ok
+- : bool list ok = Machin ((::) (true, (::) (false, [])))
 ```
 
 In hope of making these types useful, pattern-matching was extended to allow matching on constructors:
@@ -127,7 +136,7 @@ val a : int ok = Machin (3)
 val b : int = 3
 ```
 
-Fun fact, in OCaml the special tokens `[]` and `(::)` are special constructors, while the `[1; 3; 4]` and `1 :: []` syntax are merely syntaxic sugar to make everything pretty. Thus `[1; 2]` is strictly equivalent to `(::) (1, (::) (2, []))`.
+Fun fact, in OCaml the special tokens `[]` and `(::)` are special constructors, while `[1; 3; 4]` and `1 :: []` is merely syntaxic sugar to make everything practical. Thus `[1; 2]` is strictly equivalent to `(::) (1, (::) (2, []))`.
 Because we thought it would be thrilling (really, it isn't), we chose to implement lists in *fouine* as regular *fouine* constructors, making the three following expressions equivalent:
 
 ```ocaml
@@ -172,6 +181,16 @@ Error: The Constructor Machin expects 2 argument(s), but it is applied here to 1
 ```
 
 In our fouine interpreter, this difference is taken into account (It fails miserably in the second example, as wanted, showing a cryptic error message).
+
+### Type aliases.
+
+It is now also possible to define type aliases. They are really only useful when constraining the type of an expression. Sadly we do not say an expression has a given type alias, its type has been restricted accordingly.
+
+```ocaml
+>>> type liste = int list;;
+>>> ([] : list);;
+- : int list = []
+```
 
 ## Parsing.
 
