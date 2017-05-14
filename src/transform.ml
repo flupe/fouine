@@ -111,5 +111,157 @@ let rec rem_exceptions = function
 
   | x -> make_success_fn <| Call (Var "k", x)
 
-let rec rem_ref = function
-  | _ -> failwith "not supported"
+let range n =
+  let rec aux i =
+    if i = n then 
+      []
+    else
+      i :: (aux (i + 1))
+  in aux 0
+
+let foldi f a l = 
+  let rec aux i a = function
+    | [] -> a
+    | h :: q -> aux (i + 1) (f i h a) q
+  in aux 0 a l
+
+let rec rem_ref_aux ast = match ast with
+  | Empty
+  | Var _
+  | Const _ -> 
+      Fun (PField "_s", Tuple [ast; Var "_s"])
+
+  | Tuple l ->
+      let n = List.length l in
+      let l' = l |> foldi
+        (fun i h q ->
+          Let 
+            ( PTuple 
+                [ PField ("_v" ^ (string_of_int i))
+                ; PField ("_s" ^ (string_of_int i))]
+            , Call 
+                ( rem_ref_aux h
+                , Var ("_s" ^ (string_of_int (i + 1))))
+            , q))
+
+        ( Tuple 
+          [ Tuple (List.map 
+              (fun i -> Var ("_v" ^ (string_of_int i)))
+              (range n))
+          ; Var "_s0"]) in
+      
+      Fun (PField ("_s" ^ (string_of_int n)), l')
+
+  | Array l ->
+      let n = List.length l in
+      let l' = l |> foldi
+        (fun i h q ->
+          Let 
+            ( PTuple 
+                [ PField ("_v" ^ (string_of_int i))
+                ; PField ("_s" ^ (string_of_int i))]
+            , Call 
+                ( rem_ref_aux h
+                , Var ("_s" ^ (string_of_int (i + 1))))
+            , q))
+
+        ( Tuple 
+          [ Array (List.map 
+              (fun i -> Var ("_v" ^ (string_of_int i)))
+              (range n))
+          ; Var "_s0"]) in
+      
+      Fun (PField ("_s" ^ (string_of_int n)), l')
+
+  | Let (p, e1, e2) ->
+      Fun
+        ( PField "_s"
+        , Let
+            ( PTuple [p; PField "_s'"]
+            , Call (rem_ref_aux e1, Var "_s")
+            , Call (rem_ref_aux e2, Var "_s'") ))
+
+  (*| LetRec (id, e1, e2) ->
+      Fun
+        ( PField "_s"
+        , LetRec
+            ( PTuple [id; PField "_s'"]
+            , Call (rem_ref_aux e1, Var "_s")
+            , Call (rem_ref_aux e2, Var "_s'") ))*)
+
+  | IfThenElse (cond, e1, e2) ->
+      Fun 
+        ( PField "_s"
+        , Let 
+            ( PTuple [PField "_c'"; PField "_s'"]
+            , Call (rem_ref_aux cond, Var "_s")
+            , IfThenElse 
+                ( Var "_c'"
+                , Call (rem_ref_aux e1, Var "_s'")
+                , Call (rem_ref_aux e2, Var "_s'") )))
+
+  | Fun (p, e) ->
+      Fun 
+        ( PField "_s"
+        , Tuple
+            [ Fun (p, rem_ref_aux e)
+            ; Var "_s" ])
+
+  | Call (e1, e2) ->
+      Fun
+        ( PField "_s"
+        , Let
+            ( PTuple [PField "_v2"; PField "_s2"]
+            , Call (rem_ref_aux e2, Var "_s")
+            , Let
+                ( PTuple [PField "_v1"; PField "_s1"]
+                , Call (rem_ref_aux e1, Var "_s2")
+                , Call (Call (Var "_v1", Var "_v2"), Var "_s2") )))
+
+  | Seq (e1, e2) ->
+      rem_ref_aux (Let (PAll, e1, e2))
+
+  (*| ArraySet of t * t * t
+  | ArrayRead of t * t
+  | Cons of t * t*)
+
+  | TryWith _ ->
+      raise UnsupportedError
+  | Raise _ ->
+      raise UnsupportedError
+  | _ -> ast
+
+let rem_ref ast =
+  Let
+    ( PField "!"
+    , Fun
+        ( PField "_s"
+        , Fun
+            ( PField "_r"
+            , Tuple 
+                [ Call (Call (Var "read", Var "_s"), Var "_r")
+                ; Var "_s"] ))
+    , Let
+        ( PField ":="
+        , Fun
+          ( PField "_s"
+          , Fun
+              ( PField "_r",
+                Fun
+                  ( PField "_s"
+                  , Fun
+                      ( PField "_v"
+                      , Tuple 
+                          [ Const Unit
+                          ; Call 
+                              (Call (Call (Var "modify", Var "_s"), Var "_r"), Var "_v") ]))))
+        , Let 
+          ( PField "ref"
+          , Fun
+              ( PField "_s"
+              , Fun
+                  ( PField "_v"
+                  , Call (Call (Var "allocate", Var "_s"), Var "_v") ))
+          , Call 
+              ( rem_ref_aux ast
+              , Call (Var "empty", Const Unit) ))))

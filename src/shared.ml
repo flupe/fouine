@@ -27,6 +27,7 @@ exception MatchError
 exception ExecutionError
 exception InterpretationError
 exception UncaughtError of value
+exception UnsupportedError
 
 let rec equal_types a b =
   match a, b with
