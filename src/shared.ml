@@ -70,6 +70,8 @@ let rec match_pattern_aux env a b =
   | PTuple pl, CTuple cl -> match_list env pl cl
   | PConstructor (a, pl), CConstructor (b, vl) when a = b ->
       match_list env pl vl
+  | PConstraint (p, _), _ ->
+      match_pattern_aux env p b
   | _ -> raise MatchError
 
 and match_list env al bl = 

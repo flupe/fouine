@@ -83,6 +83,8 @@ let rec print_pattern = function
         if i <> 0 then print_string ", ";
         print_pattern p) pl;
       print_string ")";
+  | PConstraint _ -> ()
+
 
 and print_value_aux env i o e =
   if not i then

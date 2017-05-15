@@ -34,6 +34,7 @@ type pattern =
   | PConst of constant
   | PField of identifier
   | PTuple  of pattern list
+  | PConstraint of pattern * tp_spec
   | PConstructor of identifier * pattern list
  
 type t =

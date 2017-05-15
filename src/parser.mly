@@ -37,7 +37,7 @@
 %type <Ast.prog> main
 
 (* %nonassoc IN *)
-%nonassoc IDENT
+(* %nonassoc IDENT *)
 %nonassoc below_SEMI
 %nonassoc SEMI
 %nonassoc NOELSE
@@ -45,7 +45,7 @@
 %right SETREF LARROW
 %nonassoc below_COMMA
 %left COMMA
-%right RARROW
+(* %right RARROW *)
 %left EQ INFIX5    (* =... <... >... |... &... $... != *)
 %right INFIX4      (* @... ^... *)
 %right CONS
@@ -54,10 +54,10 @@
 %right INFIX1      (* **... *)
 %nonassoc UMINUS
 (* function application *)
-%nonassoc CONSTRUCTOR
 %nonassoc INFIX0   (* #... *)
 %nonassoc DOT
 %nonassoc PREFIX
+
 
 %%
 
@@ -81,7 +81,6 @@ type_params:
   | LPAREN comma_separated_type_spec RPAREN { $2 }
 
 enclosed_type_spec:
-  | LPAREN type_spec RARROW type_spec RPAREN { SArrow ($2, $4) }
   | LPAREN type_spec RPAREN { $2 }
   | SQUOTE IDENT { SUnbound $2 }
   | type_params IDENT { SSubtype ($2, $1) }
@@ -103,10 +102,6 @@ constant:
 array_access:
   | enclosed DOT LPAREN seq_expr RPAREN { $1, $4 }
 
-comma_pattern_list:
-  | pattern { [$1] }
-  | comma_pattern_list COMMA pattern { $3 :: $1 }
-
 pattern:
   | l = separated_nonempty_list(COMMA, pattern_enclosed) {
       match l with
@@ -121,6 +116,7 @@ pattern:
         | x -> [x]
       )
   }
+
   | pattern_enclosed CONS pattern { PConstructor ("(::)", [$1; $3]) }
 
 pattern_list:
@@ -132,6 +128,7 @@ pattern_enclosed:
   | constant      { PConst $1 }
   | ident        { PField $1 }
   | LPAREN pattern RPAREN { $2 }
+  | LPAREN pattern COLON type_spec RPAREN { PConstraint ($2, $4) }
 
 operator:
   | PREFIX { $1 }
