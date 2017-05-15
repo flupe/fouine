@@ -225,7 +225,7 @@ let rec rem_ref_aux ast = match ast with
             , Let
                 ( PTuple [PField "_v1"; PField "_s1"]
                 , Call (rem_ref_aux e1, Var "_s2")
-                , Call (Call (Var "_v1", Var "_v2"), Var "_s2") )))
+                , Call (Call (Var "_v1", Var "_v2"), Var "_s1") )))
 
   | Seq (e1, e2) ->
       rem_ref_aux (Let (PAll, e1, e2))
@@ -244,22 +244,22 @@ let rem_ref ast =
   Let
     ( PField "!"
     , Fun
-        ( PField "_s"
+        ( PField "_r"
         , Fun
-            ( PField "_r"
+            ( PField "_s"
             , Tuple 
                 [ Call (Call (Var "read", Var "_s"), Var "_r")
                 ; Var "_s"] ))
     , Let
         ( PField ":="
         , Fun
-          ( PField "_s"
+          ( PField "_r"
           , Fun
-              ( PField "_r",
+              ( PField "_s",
                 Fun
-                  ( PField "_s"
+                  ( PField "_v"
                   , Fun
-                      ( PField "_v"
+                      ( PField "_s"
                       , Tuple 
                           [ Const Unit
                           ; Call 
@@ -267,10 +267,43 @@ let rem_ref ast =
         , Let 
           ( PField "ref"
           , Fun
-              ( PField "_s"
+              ( PField "_v"
               , Fun
-                  ( PField "_v"
+                  ( PField "_s"
                   , Call (Call (Var "allocate", Var "_s"), Var "_v") ))
           , Call 
               ( rem_ref_aux ast
               , Call (Var "empty", Const Unit) ))))
+
+(*let rem_ref ast =
+  Let
+    ( PField "!"
+    , Fun
+        ( PField "_r"
+        , Fun
+            ( PField "_s"
+            , Tuple 
+                [ Call (Call (Var "read", Var "_s"), Var "_r")
+                ; Var "_s"] ))
+    , Let
+        ( PField ":="
+        , Fun
+          ( PField "_r"
+          , Fun
+              ( PField "_s",
+                Fun
+                  ( PField "_v"
+                  , Fun
+                      ( PField "_s"
+                      , Tuple 
+                          [ Const Unit
+                          ; Call 
+                              (Call (Call (Var "modify", Var "_s"), Var "_r"), Var "_v") ]))))
+        , Let 
+          ( PField "ref"
+          , Fun
+              ( PField "_v"
+              , Fun
+                  ( PField "_s"
+                  , Call (Call (Var "allocate", Var "_s"), Var "_v") ))
+          , ast )))*)
