@@ -11,6 +11,7 @@ let parse_input () =
     print_endline <| err "[ERROR]" ^ " Syntax error.";
     exit 0
 
+(* default formatting for error messages *)
 let error _ = 
   print_endline <| err "[ERROR]" ^ " Uncaught exception."
 
@@ -20,6 +21,7 @@ let () =
   let no_exceptions = ref false in
   let no_ref = ref false in
   let interm = ref "" in
+  let source = ref "" in
   let from = ref "" in
 
   let speclist =
@@ -29,6 +31,7 @@ let () =
     ; "-from", Arg.Set_string from, "Run bytecode from the given output file."
     ; "-E", Arg.Set no_exceptions, "Transform the input to fouine code without exceptions."
     ; "-R", Arg.Set no_ref, "Transform the input to fouine code without references."
+    ; "-o", Arg.Set_string source, "Execute a given fouine source file."
     ]
 
   in Arg.parse speclist ignore "Fouine REPL 2017";
@@ -50,6 +53,7 @@ let () =
     | _ -> raise UnsupportedError
   in
 
+  (* Compilation *)
   if !interm <> "" then begin
     let prog = parse_input () in
     let combined = combine_prog prog in
@@ -113,7 +117,7 @@ let () =
   else begin
     (* We fetch the module with which to interpret our input. *)
     let (module Interp) = begin
-      (* if we plan on doing transformartions on our code
+      (* if we plan on doing transformations on our code
        * we use a simpler interpreter *)
       if !no_exceptions || !no_ref then
         Simpinterp.make_interp !no_exceptions !no_ref
@@ -147,8 +151,11 @@ let () =
           in
           Interp.eval success error e
 
-      | TypeDef (params, name, decl) -> Infer.declare_type name params decl
-      in
+      | TypeDef (params, name, decl) ->
+          Infer.declare_type name params decl;
+          print_endline ("Type " ^ name ^ " was defined")
+
+    in
 
     let rec run_prog = function
       | s :: t ->
@@ -156,6 +163,30 @@ let () =
           run_prog t
       | [] -> ()
     in
+
+    (* A source file was provided, we execute it first *)
+    if !source <> "" then begin
+      let parse_file file_name =
+        let lexing = Lexing.from_channel @@ open_in file_name in
+        let rec aux () = 
+          try
+            let code = lexing |> Parser.main Lexer.token
+            in
+            if code = [] then code
+            else code @ aux ()
+          with _ ->
+            print_endline <| err "[ERROR]" ^ " Syntax error.";
+            exit 0
+        in
+        aux ()
+      in
+      let prog = parse_file !source in
+
+      try
+        run_prog prog
+      with InterpretationError ->
+        print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
+    end;
 
     (* Let the fun begin. *)
     while true do

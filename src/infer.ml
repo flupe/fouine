@@ -28,6 +28,8 @@ let env : env ref = ref
   ; "*",   TInt @>> TInt @>> TInt
   ; "/",   TInt @>> TInt @>> TInt
   ; "mod", TInt @>> TInt @>> TInt
+  ; "max", TInt @>> TInt @>> TInt
+  ; "min", TInt @>> TInt @>> TInt
 
   ; "read",     "list" % (TTuple [TInt; ??"a"]) @>> TInt @>> ??"a"
   ; "empty",    TUnit @>> "list" % (TTuple [TInt; ??"a"])
@@ -48,6 +50,9 @@ let env : env ref = ref
   ; "@",  "list" % ??"a" @>> "list" % ??"a" @>> "list" % ??"a"
   ; "|>", ??"a" @>> (??"a" @>> ??"b") @>> ??"b"
   ; "@@", (??"a" @>> ??"b") @>> ??"a" @>> ??"b"
+
+  ; "^", TString @>> TString @>> TString
+  ; "string_split_on_char", TChar @>> TString @>> "list" % TString
   ]
 
 let constructors = ref
@@ -59,6 +64,8 @@ let types = ref
   [ "int", ([], TInt)
   ; "bool", ([], TBool)
   ; "unit", ([], TUnit)
+  ; "string", ([], TString)
+  ; "char", ([], TChar)
   ; "array", (["a"], TArray ??"a")
   ; "ref", (["a"], TRef ??"a")
   ; "list", (["a"], "list" % ??"a")
@@ -68,6 +75,8 @@ let rec debug_string = function
   | TInt -> "TInt"
   | TBool -> "TBool" 
   | TUnit -> "TUnit"
+  | TString -> "TString"
+  | TChar -> "TChar"
   | TSum (id, tl) ->
       Printf.sprintf "TSum (\"%s\", [%s])" id (String.concat "; " (List.map debug_string tl))
   | TGeneric id -> "TGeneric \"" ^ id ^ "\""
@@ -226,6 +235,8 @@ let type_of_const = function
   | Int _ -> TInt
   | Bool _ -> TBool
   | Unit -> TUnit
+  | String _ -> TString
+  | Char _ -> TChar
 
 let rec match_type level env tp = function
   | PAll -> env
@@ -305,6 +316,15 @@ let rec type_of env expr =
         let t_b = infer (match_type level env t_p p) level b in
         unify t_a t_b;
         t_a
+
+    | MatchWith (e, matching) ->
+        let t_a = infer env level e in
+        let t_r = new_var level in
+        List.iter (function (pat, e) ->
+          let t_r' = infer (match_type level env t_a pat) level e in
+          unify t_r t_r'
+        ) matching;
+        t_r
 
     | Raise t -> new_var level
 

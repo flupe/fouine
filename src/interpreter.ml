@@ -110,6 +110,18 @@ let eval k kE e : unit =
           let env' = match_pattern env p x in step env' k kE r
         in step env k kE' l
 
+    | MatchWith (e, matching) ->
+        let k' x = 
+          let rec aux = function
+            | (p, r) :: t -> begin
+                try step (match_pattern env p x) k kE r
+                with MatchError ->
+                  aux t
+              end
+            | [] -> raise MatchError
+          in aux matching
+        in step env k' kE e
+
     | Seq (l, r) ->
         let k' lc =
           if lc = CConst Unit then
