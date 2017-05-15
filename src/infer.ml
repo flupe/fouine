@@ -224,9 +224,16 @@ let type_of_const = function
 
 let rec match_type level env tp = function
   | PAll -> env
+
   | PConst c ->
       unify (type_of_const c) tp;
       env
+
+  | PConstraint (p, tspec) ->
+      let t = instanciate level (build_type tspec) in
+      unify t tp;
+      match_type level env t p
+
   (* TODO: check multiple occurences *)
   | PField id -> (id, tp) :: env
 
@@ -257,14 +264,15 @@ let rec type_of env expr =
     | Tuple l -> TTuple (List.map (infer env level) l)
 
     | Let (p, v, e) ->
-        let tv = generalize level (infer env (level + 1) v) in
-        infer (match_type level env tv p) level e
+        let tv = infer env (level + 1) v in
+        let env' = List.map (fun (id, t) -> (id, generalize level t)) (match_type level [] tv p) in
+        infer (env' @ env) level e
 
     | LetRec (id, v, e) ->
         let t = new_var level in
         let env' = (id, t) :: env in
         unify t (infer env' (level + 1) v);
-        infer env' level e
+        infer ((id, generalize level t) :: env) level e
 
     | IfThenElse (c, a, b) ->
         let t_c = infer env level c in
@@ -341,12 +349,14 @@ let rec type_of env expr =
               let tdef, _ = instanciate_aux mem level p in
               unify t tdef;
               tr
+
           | e, ([p], tr) ->
               let t = infer env level (Tuple e) in
               let tr, mem = instanciate_aux [] level tr in
               let tdef, _ = instanciate_aux mem level p in
               unify t tdef;
               tr
+
           | e, (def, tr) ->
               let ts = List.map (infer env level) e in
               let tr, mem = instanciate_aux [] level tr in
@@ -371,15 +381,15 @@ let declare_type name params = function
 
 let type_of_stmt = function
   | Decl (p, e) ->
-      let t = generalize 0 (type_of !env e) in
-      env := match_type 0 !env t p;
-      t
+      let t = type_of !env e in
+      let env' = List.map (fun (id, t) -> (id, generalize 0 t)) (match_type 0 [] t p) in
+      env := env' @ !env;
+      generalize 0 t
 
   | DeclRec (id, e) ->
       let t = new_var 1 in
       let env' = (id, t) :: !env in
-      let t' = type_of env' e in
-      unify t t';
+      unify t (type_of env' e); 
       let t = generalize 0 t in
       env := (id, t) :: !env;
       t
