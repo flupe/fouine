@@ -115,18 +115,7 @@ let rec rem_exceptions = function
           , Tuple
             [ Fun (PField n, e)
             ; Var "kE" ])) vl names e
-
-  (*
-  | Cons (a, b) ->
-      make_fn <| Call (rem_exceptions a, Tuple
-        [ Fun (PField "x", Call (rem_exceptions b, Tuple
-          [ Fun (PField "t", Call (Var "k", Cons (Var "x", Var "t")))
-          ; Var "kE"
-          ]))
-        ; Var "kE"
-        ])
-        *)
-
+        
   | x -> make_success_fn <| Call (Var "k", x)
 
 let range n =
@@ -198,14 +187,6 @@ let rec rem_ref_aux ast = match ast with
             , Call (rem_ref_aux e1, Var "_s")
             , Call (rem_ref_aux e2, Var "_s'") ))
 
-  (*| LetRec (id, e1, e2) ->
-      Fun
-        ( PField "_s"
-        , LetRec
-            ( PTuple [id; PField "_s'"]
-            , Call (rem_ref_aux e1, Var "_s")
-            , Call (rem_ref_aux e2, Var "_s'") ))*)
-
   | IfThenElse (cond, e1, e2) ->
       Fun 
         ( PField "_s"
@@ -238,10 +219,6 @@ let rec rem_ref_aux ast = match ast with
   | Seq (e1, e2) ->
       rem_ref_aux (Let (PAll, e1, e2))
 
-  (*| ArraySet of t * t * t
-  | ArrayRead of t * t
-  | Cons of t * t*)
-
   | TryWith _ ->
       raise UnsupportedError
   | Raise _ ->
@@ -264,14 +241,16 @@ let rem_ref ast =
           ( PField "_r"
           , Fun
               ( PField "_s",
-                Fun
-                  ( PField "_v"
-                  , Fun
-                      ( PField "_s"
-                      , Tuple 
-                          [ Const Unit
-                          ; Call 
-                              (Call (Call (Var "modify", Var "_s"), Var "_r"), Var "_v") ]))))
+                Tuple
+                  [ Fun
+                    ( PField "_v"
+                    , Fun
+                        ( PField "_s"
+                        , Tuple 
+                            [ Const Unit
+                            ; Call 
+                                (Call (Call (Var "modify", Var "_s"), Var "_r"), Var "_v") ]))
+                  ; Var "_s"] ))
         , Let 
           ( PField "ref"
           , Fun

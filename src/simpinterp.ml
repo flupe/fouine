@@ -60,13 +60,6 @@ let rec eval_expr env expr =
 
         | CRec _ -> print_endline "should not be here"; raise InterpretationError
 
-        (* 
-        | CRec (name, e, env') ->
-            let env' = Env.add name fc env' in
-            match aux env' e in
-            aux env' (Call (e, x))
-        *)
-
         | CMetaClosure f -> f (aux env x)
 
         | _ -> raise InterpretationError

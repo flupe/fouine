@@ -7,6 +7,6 @@ else
   false
 ;;
 
-let a = ref 2;;
-if !a < 3 then a := 3;;
-a;;
+let a = ref 2 in
+if !a < 3 then a := 3;
+!a;;
