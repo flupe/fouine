@@ -247,31 +247,26 @@ with E x ->
 - Scopes delimited by parens or `begin`, `end`.
 - Support of several successive `let` statements without `;;` between them.
 
-## REPL.
-
-When running `./fouine` without additionnal parameters, we provide a REPL *(read-eval-print-loop)*, meaning that you can do the following:
-
-```ocaml
->>> let a = 3;;
-val a : int = 3
->>> let b = 4;;
-val b : int = 4
->>> a + b;;
-- : int = 7
-```
 
 ## AST Transformations.
 
 ### CPS Transform.
 Running the executable with the `-E` option processes the AST to handle exceptions via continuations while removing them altogether from the AST. This transform is now **applicable to any fouine expression**, even recursive definitions (without the need for additional constructors such as `Fix`).
 
-We hit a roadblock when trying to support builtin binary operators, as any function now takes two new arguments yet binary operators are curryfied meaning you can't simply add arguments to the uppermost level. But soon a hackish solution was found: We are able to find out how many arguments a function expects by looking at its type in the type environment (`TArrow(-, TArrow(-, -))`), and apply recursively the transformation. This is done once on the default environment.
+We hit a roadblock when trying to support builtin binary operators, as any function now takes two new arguments yet binary operators are curryfied meaning you can't simply add arguments to the uppermost level. But soon a hackish solution was found: we are able to find out how many arguments a function expects by looking at its type in the type environment (`TArrow(-, TArrow(-, -))`), and apply recursively the transformation. This is done once on the default environment.
+
+### Reference Transform.
+Running the executable with the `-R` option processes the AST to treat references by passing a state variable, which is essentially an association list which maps memory addresses to values.
+
+We also hit a few roadblocks, in order to isolate the calls to `ref`, to `!=` or to `!` in the AST (because they now appear just like any other function calls), and to change the signature of the builtin operators from `a_1 -> a_2 -> ... -> a_n -> b` to `a_1 -> state -> a_2 -> state -> ... -> a_n -> state -> b` because of the way we transform function calls.
 
 ## Compilation.
 
 We support all of the above.
 
-We use an extension of the SECD bytecode suggested in class, which has additionnal instructions to support conditonnal statements, recursive functions, arrays, exceptions or references.
+We use an extension of the SECD bytecode suggested in class, which has additionnal instructions to support conditonnal statements, recursive functions, arrays, tuples, exceptions and references, constructors and pattern matching.
+
+We haven't been able to extend the compiler and the machine too much because of the choices that were made early on -- essentially those regarding built-in functions. For instance, fully transitionning to De Bruijne indexes was not really feasible as some values in the environment still had to be called by name. Also, transitionning to a Zinc machine would have been a *very* tedious process because of the number of transitions that would have had to be changed to support our `CMetaClosures`.
 
 ```ocaml
 type bytecode =
@@ -280,6 +275,8 @@ type bytecode =
 and instruction
   = BConst of Ast.constant
   | BTuple of int
+  | BArray of int
+  | BConstructor of string * int
   | BArraySet
   | BArrayRead
   | BAccess of identifier
