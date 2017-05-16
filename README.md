@@ -201,6 +201,25 @@ It is now also possible to define type aliases. They are really only useful when
 - : int list = []
 ```
 
+### Exceptions.
+
+```ocaml
+type exn = E of int;;
+```
+
+Now that we have union types in *fouine* we can define `E` as regular *fouine* constructor of the sum type `exn`.
+This makes the parser a tad simpler, and allows the manipulation of exceptions as first-class *fouine* components.
+It also makes it possible to specify `raise` as a function expecting an argument of type `exn` in the type inference pass.
+
+```ocaml
+try
+  let x = E 5 in
+  raise x
+with E x ->
+  print_endline "caught exception :";
+  x
+```
+
 ## Parsing.
 
 ### Currently supported syntax.
@@ -249,15 +268,6 @@ It is now also possible to define type aliases. They are really only useful when
   >>> let f (x, y) = x * y;;
   >>> f (1, 2);;
   - : int = 2
-  ```
-
-  ```ocaml
-  >>> try
-        raise (E (1, 2))
-      with E (x, y) ->
-        x + y
-      ;;
-  - : int = 3
   ```
 
 ## REPL.
