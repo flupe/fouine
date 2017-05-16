@@ -167,7 +167,7 @@ let make_interp debug exceptions references = (module struct
       let rec rem t v =
         match t, v with
         | TArrow (_, ty), CMetaClosure f ->
-            CMetaClosure (fun x -> CMetaClosure (fun v -> rem ty (f x)))
+            CMetaClosure (fun x -> CMetaClosure (fun v -> CTuple [rem ty (f x); v]))
         | _, x -> x
       in
       Env.mapi (fun name v -> rem (List.assoc name !Infer.env) v ) Base.base
