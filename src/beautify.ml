@@ -14,6 +14,7 @@ let rec string_of_value_type = function
     | Int _ -> green "int"
     | Bool _ -> yellow "bool"
     | Unit -> magenta "unit"
+    | String _ -> cyan "string"
     end
   | CRef r -> string_of_value_type !r ^ red " ref"
   | CArray _ -> cyan "'a array"
@@ -31,6 +32,7 @@ let string_of_const = function
   | Int i -> green (string_of_int i)
   | Bool b -> yellow (if b then "true" else "false")
   | Unit -> magenta "()"
+  | String s -> cyan ("\"" ^ s ^ "\"")
 
 let rec string_of_value = function
   | CConst c -> string_of_const c
@@ -60,6 +62,7 @@ let print_constant_with f = function
   | Int k -> f (green <| string_of_int k)
   | Bool b -> f (yellow (if b then "true" else "false"))
   | Unit -> f (magenta "()")
+  | String s -> f (cyan ("\"" ^ s ^ "\""))
 
 let print_constant = print_constant_with print_string
 
@@ -228,6 +231,7 @@ let rec string_of_type ?clean:(c = false) t =
     | TInt -> col green "int"
     | TBool -> col yellow "bool"
     | TUnit -> col magenta "unit"
+    | TString -> col cyan "string"
     | TRef t -> Printf.sprintf "%s %s" (aux true t) (col red "ref")
     | TArray t -> Printf.sprintf "%s %s" (aux true t) (col cyan "array")
     | TSum (name, []) -> name

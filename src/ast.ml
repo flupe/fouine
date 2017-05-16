@@ -4,7 +4,7 @@ type level = int
 
 (* types supported by the fouine language *)
 type tp =
-  | TInt | TBool | TUnit
+  | TInt | TBool | TUnit | TString | TChar
   | TSum of id * tp list
   | TGeneric of id (* named quantified type variable *)
   | TArrow of tp * tp
@@ -27,6 +27,8 @@ type tp_spec =
 type constant =
   | Int  of int
   | Bool of bool
+  | String of string
+  | Char of char
   | Unit 
 
 type pattern =
@@ -51,6 +53,7 @@ type t =
   | Fun of pattern * t
   | Call of t * t
   | TryWith of t * pattern * t
+  | MatchWith of t * (pattern * t) list
   | Raise of t
   | Seq of t * t
   | ArraySet of t * t * t

@@ -38,6 +38,17 @@ let rec eval_expr env expr =
         aux (Env.add id f env) fn
       end
 
+    | MatchWith (e, matching) ->
+        let x = aux env e in
+        let rec aux' = function
+          | (p, r) :: t -> begin
+              try aux (match_pattern env p x) r
+              with MatchError ->
+                aux' t
+            end
+          | [] -> raise MatchError
+        in aux' matching
+
     | Fun (pattern, e) -> CClosure (pattern, e, env)
 
     | Call (e, x) -> begin

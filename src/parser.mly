@@ -10,6 +10,8 @@
 %}
 
 %token <string> IDENT
+%token <string> STRING
+%token <char> CHAR
 %token <string> CONSTRUCTOR
 
 %token <string> PREFIX
@@ -25,12 +27,12 @@
 %token LET IN IF THEN ELSE DELIM FUN RARROW REC
 %token MINUS MOD EQ
 %token UNDERSCORE COMMA
-%token SQUOTE BAR TYPE OF STAR
+%token SQUOTE BAR TYPE OF STAR EOF
 
 %token TRUE FALSE
 %token TRY WITH RAISE E
 %token SETREF CONS
-%token DOT LARROW COLON
+%token DOT LARROW COLON MATCH
 
 %start main
 
@@ -98,6 +100,8 @@ constant:
   | boolean { $1 }
   | integer { $1 }
   | unit    { $1 }
+  | STRING  { String $1 }
+  | CHAR  { Char $1 }
 
 array_access:
   | enclosed DOT LPAREN seq_expr RPAREN { $1, $4 }
@@ -175,6 +179,7 @@ enclosed:
 
 main:
   | statement DELIM { $1 }
+  | statement EOF { $1 }
 
 statement:
   | global_lets { $1 }
@@ -232,6 +237,11 @@ comma_list:
   | comma_list COMMA expr { $3 :: $1 }
   | expr COMMA expr { [$3; $1] }
 
+pattern_matching:
+  | pattern RARROW seq_expr { [($1, $3)] }
+  | BAR pattern RARROW seq_expr { [($2, $4)] }
+  | pattern_matching BAR pattern RARROW seq_expr { ($3, $5) :: $1 }
+
 expr:
   | comma_list %prec below_COMMA { Tuple (List.rev $1) }
 
@@ -267,13 +277,7 @@ expr:
   | TRY seq_expr WITH E pattern RARROW seq_expr { TryWith ($2, $5, $7) }
   | RAISE LPAREN E enclosed RPAREN { Raise $4 }
 
-  (* 
-  | CONSTRUCTOR enclosed {
-      match $2 with
-      | Tuple l -> Constructor ($1, l)
-      | x -> Constructor ($1, [x])
-    }
-    *)
+  | MATCH expr WITH pattern_matching { MatchWith ($2, List.rev $4) }
 
   | array_access LARROW expr {
       let arr, key = $1 in

@@ -19,7 +19,7 @@ let bool_binop op =
   | CConst (Bool a) -> (meta @@ function
      | CConst (Bool b) -> CConst (Bool (op a b))
      | _ -> raise TypeError)
-| _ -> raise TypeError
+  | _ -> raise TypeError
  
 let base =
   List.fold_left (fun e (id, v) -> Env.add id v e) Env.empty <|
@@ -45,6 +45,8 @@ let base =
     ; "*", int_binop ( * )
     ; "/", int_binop (/)
     ; "mod", int_binop (mod)
+    ; "max", int_binop (max)
+    ; "min", int_binop (min)
     ; "<", gen_bool_binop (<)
     ; "<=", gen_bool_binop (<=)
     ; ">", gen_bool_binop (>)
@@ -53,8 +55,8 @@ let base =
     ; "<>", gen_bool_binop (<>)
     ; "&&", bool_binop (&&)
     ; "||", bool_binop (||)
-    ; "|>", meta (fun x -> meta (function CMetaClosure f -> f x | _ -> raise TypeError))
-    ; "@@", meta (function CMetaClosure f -> meta (fun x -> f x) | _ -> raise TypeError)
+    (* ; "|>", meta (fun x -> meta (function CMetaClosure f -> f x | _ -> raise TypeError))
+    ; "@@", meta (function CMetaClosure f -> meta (fun x -> f x) | _ -> raise TypeError) *)
     ; "@", meta (fun a -> meta (fun b ->
         let rec aux = function
           | CConstructor ("[]", _) -> b
@@ -62,4 +64,15 @@ let base =
           | _ -> raise TypeError
         in aux a
       ))
+    ; "^", meta @@ (function
+        | CConst (String a) -> (meta @@ function
+            | CConst (String b) -> CConst (String (a ^ b))
+            | _ -> raise TypeError)
+        | _ -> raise TypeError)
+    ; "string_split_on_char", meta @@ (function
+        | CConst (Char c) -> (meta @@ function
+            | CConst (String s) ->
+                List.fold_right (fun x e -> CConstructor ("(::)", [x; e])) (List.map (fun x -> CConst (String x)) (String.split_on_char c s)) (CConstructor ("[]", []))
+            | _ -> raise TypeError)
+        | _ -> raise TypeError)
     ]
