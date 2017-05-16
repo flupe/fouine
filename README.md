@@ -256,7 +256,7 @@ Running the executable with the `-E` option processes the AST to handle exceptio
 We hit a roadblock when trying to support builtin binary operators, as any function now takes two new arguments yet binary operators are curryfied meaning you can't simply add arguments to the uppermost level. But soon a hackish solution was found: we are able to find out how many arguments a function expects by looking at its type in the type environment (`TArrow(-, TArrow(-, -))`), and apply recursively the transformation. This is done once on the default environment.
 
 ### Reference Transform.
-Running the executable with the `-R` option processes the AST to treat references by passing a state variable, which is essentially an association list which maps memory addresses to values.
+Running the executable with the `-R` option processes the AST to remove references, and instead emulate them by passing along a "state variable", which is essentially an association list which maps memory addresses to values.
 
 We also hit a few roadblocks, in order to isolate the calls to `ref`, to `!=` or to `!` in the AST (because they now appear just like any other function calls), and to change the signature of the builtin operators from `a_1 -> a_2 -> ... -> a_n -> b` to `a_1 -> state -> a_2 -> state -> ... -> a_n -> state -> b` because of the way we transform function calls.
 
