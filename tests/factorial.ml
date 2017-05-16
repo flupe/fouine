@@ -3,4 +3,6 @@ let rec fact n =
     n * fact (n - 1)
   else
     1
-in prOut @@ fact 6;;
+;;
+fact 8;;
+fact 9;;

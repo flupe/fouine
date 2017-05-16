@@ -43,11 +43,11 @@ let env : env ref = ref
   ; "||", TBool @>> TBool @>> TBool
 
   ; "@",  "list" % ??"a" @>> "list" % ??"a" @>> "list" % ??"a"
+  (*
   ; "|>", ??"a" @>> (??"a" @>> ??"b") @>> ??"b"
-  ; "@@", (??"a" @>> ??"b") @>> ??"a" @>> ??"b"
+  ; "@@", (??"a" @>> ??"b") @>> ??"a" @>> ??"b" *)
 
   ; "^", TString @>> TString @>> TString
-  ; "string_split_on_char", TChar @>> TString @>> "list" % TString
   ]
 
 let constructors = ref

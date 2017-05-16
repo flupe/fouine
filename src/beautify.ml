@@ -221,6 +221,17 @@ and print_aux env i o e =
 
   | Constraint (e, tp) -> print_aux i o e
 
+  | MatchWith (e, matching) ->
+      p false o "match ";
+      esc true (o ^ indent) e;
+      print_string " with";
+      List.iter (fun (pat, e) ->
+        p false (o ^ indent) "| ";
+        print_pattern pat;
+        print_string " -> ";
+        esc true (o ^ indent) e
+      ) matching
+
 let print_ast e =
   print_aux Env.empty true "" e;
   print_endline ";;"

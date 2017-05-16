@@ -69,10 +69,4 @@ let base =
             | CConst (String b) -> CConst (String (a ^ b))
             | _ -> raise TypeError)
         | _ -> raise TypeError)
-    ; "string_split_on_char", meta @@ (function
-        | CConst (Char c) -> (meta @@ function
-            | CConst (String s) ->
-                List.fold_right (fun x e -> CConstructor ("(::)", [x; e])) (List.map (fun x -> CConst (String x)) (String.split_on_char c s)) (CConstructor ("[]", []))
-            | _ -> raise TypeError)
-        | _ -> raise TypeError)
     ]

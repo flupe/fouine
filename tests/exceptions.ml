@@ -1,5 +1,5 @@
 try
-  raise 2
+  raise (E 2)
 with E x ->
   prInt x
 ;;

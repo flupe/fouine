@@ -121,7 +121,6 @@ pattern:
       )
   }
 
-  | pattern_enclosed CONS pattern { PConstructor ("(::)", [$1; $3]) }
 
 pattern_list:
   | l = nonempty_list(pattern_enclosed) { l }
@@ -133,6 +132,7 @@ pattern_enclosed:
   | ident        { PField $1 }
   | LPAREN pattern RPAREN { $2 }
   | LPAREN pattern COLON type_spec RPAREN { PConstraint ($2, $4) }
+  | pattern_enclosed CONS pattern_enclosed { PConstructor ("(::)", [$1; $3]) }
 
 operator:
   | PREFIX { $1 }
