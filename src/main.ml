@@ -48,6 +48,11 @@ let () =
     List.fold_right combine_stmt prog (Const Unit)
   in
 
+  let shit_prog = function
+    | Expr e :: q -> e
+    | _ -> raise UnsupportedError
+  in
+
   (* Compilation *)
   if !interm <> "" then begin
     let prog = parse_input () in
@@ -189,9 +194,21 @@ let () =
       flush stdout;
 
       let prog = parse_input () in
-
       try
-        run_prog prog
+        let combined = shit_prog prog in
+        combined
+        |> Beautify.print_ast;
+
+        combined
+        |> Transform.rem_ref
+        |> Beautify.print_ast;
+
+        Expr (combined
+        |> Transform.rem_ref)
+        |> exec_stmt;
+
+      (*try
+        run_prog prog*)
       with InterpretationError ->
         print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
     done 

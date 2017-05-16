@@ -31,6 +31,11 @@ let env : env ref = ref
   ; "max", TInt @>> TInt @>> TInt
   ; "min", TInt @>> TInt @>> TInt
 
+  ; "read",     "list" % (TTuple [TInt; ??"a"]) @>> TInt @>> ??"a"
+  ; "empty",    TUnit @>> "list" % (TTuple [TInt; ??"a"])
+  ; "allocate", "list" % (TTuple [TInt; ??"a"]) @>> ??"a" @>> TTuple [TInt; "list" % (TTuple [TInt; ??"a"])]
+  ; "modify",   "list" % (TTuple [TInt; ??"a"]) @>> TInt @>> ??"a" @>> "list" % (TTuple [TInt; ??"a"])
+
   ; "!",  TRef ??"a" @>> ??"a"
   ; ":=", TRef ??"a" @>> ??"a" @>> TUnit
   ; "<",  ??"a" @>> ??"a" @>> TBool

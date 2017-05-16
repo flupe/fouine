@@ -18,7 +18,7 @@ e1 e2:
 	fun s ->
 		let (v2, s2) = [[e2]] s in
 		let (v1, s1) = [[e1]] s2 in
-		v1 v2 s2
+		v1 v2 s1
 
 let x = e1 in e2:
 	fun s ->
