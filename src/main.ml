@@ -164,10 +164,8 @@ let () =
         let lexing = Lexing.from_channel @@ open_in file_name in
         let rec aux () = 
           try
-            let code = lexing |> Parser.main Lexer.token
-            in
-            if code = [] then code
-            else code @ aux ()
+            let code = lexing |> Parser.main Lexer.token in
+            if code = [] then code else code @ aux ()
           with _ ->
             print_endline <| err "[ERROR]" ^ " Syntax error.";
             exit 0

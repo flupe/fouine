@@ -10,24 +10,12 @@ This project is an implementation of **fouine**, a toy programming language base
 
 Lucas also worked on type inference, and we split work on the transformations.
 
-## Notable changes.
-
-Since the first release of the project, we have done a considerable amount of refactoring and extension, including:
-- Complete support of polymorphic exceptions by both the interpreter and the SECD machine.
-- Introduction of tuples and lists.
-- Type checking and pattern matching using Didier Rémy's extension of Algorithm W.
-- Transition of all operators to meta-closures.
-- Support of user-defined infix and prefix operators.
-- Transformations *(almost)*.
-
 ## Usage.
 
 > **Note**: We switched to `menhir` for parsing along the way. To compile properly, make sure you have it installed *(`opam install menhir`)*.
 
 - Compile with `make`.
-
-- Run with `./fouine` to launch a REPL.
-
+- Run with `./fouine` to launch a REPL. If a filename is provided, the associated file will be executed before starting the REPL in the altered environment.
   By default, the REPL will interpret the parsed expressions using the `Interpreter` module.
 
   If `rlwrap` is installed on your machine, the REPL will maintain a history of your previous inputs, which you can access using the `↑` and `↓` keys.
@@ -255,20 +243,6 @@ with E x ->
 - Chained function calls, even with anonymous functions.
 - Scopes delimited by parens or `begin`, `end`.
 - Support of several successive `let` statements without `;;` between them.
-- **New!** : Full pattern matching in `let` bindings, function declarations and exceptions.
-
-  ```ocaml
-  >>> let x, (y, z) = 1, (2, 3);;
-  val x : int = 1
-  val y : int = 2
-  val z : int = 3
-  ```
-
-  ```ocaml
-  >>> let f (x, y) = x * y;;
-  >>> f (1, 2);;
-  - : int = 2
-  ```
 
 ## REPL.
 
@@ -282,34 +256,6 @@ val b : int = 4
 >>> a + b;;
 - : int = 7
 ```
-
-Our pretty-printing routine is designed to be as explicit as possible. For instance:
-```ocaml
->>> aMake 5;;
-- : int array = [| 0; 0; 0; 0; 0 |]
-```
-
-```ocaml
->>> prInt;;
-- : int -> int = <fun>
-```
-
-## Interpretation.
-
-We support the following:
-- All arithmetical and boolean operations.
-- Control flow (`if`, `else`).
-- Variable definition and fetching through environments.
-- Closures and variable propagation.
-- Function calls, currying.
-- Full reference support.
-- Integer array support.
-- Builtin functions on a metalanguage level (`prInt`, `prOut`, `aMake`).
-- Successive `let` definitions without the `in` keyword with a persistent global environment.
-- Recursion.
-- Exceptions handling.
-- Pattern matching. Every parameter of a function is a pattern. Same goes for the left-hand side of every `let` binding other than a function definition.
-
 
 ## AST Transformations.
 
