@@ -43,7 +43,7 @@ let rec eval_expr env expr =
         let rec aux' = function
           | (p, r) :: t -> begin
               try aux (match_pattern env p x) r
-              with MatchError ->
+              with MatchError -> 
                 aux' t
             end
           | [] -> raise MatchError

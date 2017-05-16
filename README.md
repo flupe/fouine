@@ -258,7 +258,7 @@ We hit a roadblock when trying to support builtin binary operators, as any funct
 ### Reference Transform.
 Running the executable with the `-R` option processes the AST to remove references, and instead emulate them by passing along a "state variable", which is essentially an association list which maps memory addresses to values.
 
-We also hit a few roadblocks, in order to isolate the calls to `ref`, to `!=` or to `!` in the AST (because they now appear just like any other function calls), and to change the signature of the builtin operators from `a_1 -> a_2 -> ... -> a_n -> b` to `a_1 -> state -> a_2 -> state -> ... -> a_n -> state -> b` because of the way we transform function calls.
+We also hit a few roadblocks, in order to isolate the calls to `ref`, to `!=` or to `!` in the AST (because they now appear just like any other function calls), and to change the signature of the builtin operators from `a_1 -> a_2 -> ... -> a_n -> b` to `a_1 -> state -> a_2 -> state -> ... -> a_n -> state -> (b * state)` because of the way we transform function calls.
 
 ## Compilation.
 
