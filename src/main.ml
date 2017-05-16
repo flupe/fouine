@@ -20,15 +20,17 @@ let () =
   let machine = ref false in
   let no_exceptions = ref false in
   let no_ref = ref false in
+  let autotest = ref false in
   let interm = ref "" in
   let source = ref "" in
   let from = ref "" in
 
   let speclist =
     [ "-debug", Arg.Set debug, "Display the parsed input."
-    ; "-machine", Arg.Set machine, "Use the SECD instead of the standard Interpreter."
+    ; "-machine", Arg.Set machine, "Use the SECD instead of the interpreter."
     ; "-interm", Arg.Set_string interm, "Compile input to the given output file."
     ; "-from", Arg.Set_string from, "Run bytecode from the given output file."
+    ; "-autotest", Arg.Set autotest, "Compares the output of the interpreter and the SECD."
     ; "-E", Arg.Set no_exceptions, "Transform the input to fouine code without exceptions."
     ; "-R", Arg.Set no_ref, "Transform the input to fouine code without references."
     ]
@@ -95,8 +97,10 @@ let () =
       (* If we're doing code transformations, we're using a simpler interpreter. *)
       if !no_exceptions || !no_ref then
         Simpinterp.make_interp !debug !no_exceptions !no_ref
+      else if !autotest then
+        Test.make_interp !debug
       else if !machine then
-        Machine.make_interp !debug        
+        Machine.make_interp !debug
       else
         Interpreter.make_interp !debug
     end in
