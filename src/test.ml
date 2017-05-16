@@ -25,13 +25,12 @@ let make_interp debug =
       IInterp.eval (fun v -> 
         print_endline <| cyan "[AUTOTEST] Here begins the SECD machine.";
         MInterp.eval (fun v' ->
-          if quasi_equal v v' then begin
-            print_endline <| green "[AUTOTEST] The two output values are equal.";
-            k (CTuple [v; v'])
-          end else begin
+          if quasi_equal v v' then
+            print_endline <| green "[AUTOTEST] The two output values are equal."
+          else
             print_endline <| err "[AUTOTEST] The two output values differ.";
-            k (CTuple [v; v'])
-          end) kE e) kE e
+            
+          k (CTuple [v; v'])) kE e) kE e
 
     let bind id = function
       | CTuple [v; v'] ->
