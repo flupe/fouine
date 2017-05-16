@@ -125,6 +125,24 @@ let rec eval_expr env expr =
     | Raise _ -> failwith "Exceptions not supported"
   in aux env expr
 
+let meta f = CMetaClosure f
+let rec to_list = function
+  | CConstructor ("[]", _) -> []
+  | CConstructor ("(::)", [h; t]) -> h :: (to_list t)
+  | _ -> raise TypeError
+
+let rec of_list = function
+  | [] -> CConstructor ("[]", [])
+  | h :: t -> CConstructor ("(::)", [h; of_list t])
+
+let unwrap_assoc = List.map (function
+  | CTuple [CConst (Int i); x] -> (i, x)
+  | _ -> raise TypeError)
+
+let wrap_assoc = List.map (function
+  | (i, x) -> CTuple [CConst (Int i); x])
+
+
 let make_interp debug exceptions references = (module struct
   (* If we use transforms, we need to edit our built-ins to
      change their signatures. *)
@@ -143,8 +161,37 @@ let make_interp debug exceptions references = (module struct
         | _, x -> x
       in
       Env.mapi (fun name v -> rem (List.assoc name !Infer.env) v ) Base.base
+  (* If we use transforms, we need to edit our built-ins to
+     change their signatures. *)
     else if references then
-      Base.base
+      let rec rem t v =
+        match t, v with
+        | TArrow (_, ty), CMetaClosure f ->
+            CMetaClosure (fun x -> CMetaClosure (fun v -> rem ty (f x)))
+        | _, x -> x
+      in
+      Env.mapi (fun name v -> rem (List.assoc name !Infer.env) v ) Base.base
+      |> Env.add "read" (meta (fun a -> meta (fun b ->
+           let l = to_list a |> unwrap_assoc in
+           match b with
+             | CConst (Int i) -> List.assoc i l
+             | _ -> raise TypeError)))
+
+      |> Env.add "empty" (meta (function
+           | CConst (Unit) -> of_list []
+           | _ -> raise TypeError))
+
+      |> Env.add "allocate" (meta (fun a -> meta (fun x ->
+           let l = to_list a |> unwrap_assoc in
+           let i = List.length l in
+           CTuple [CConst (Int i); (i, x) :: l |> wrap_assoc |> of_list])))
+
+      |> Env.add "modify" (meta (fun a -> meta (fun b -> meta (fun x ->
+          let l = to_list a |> unwrap_assoc in
+          match b with
+            | CConst (Int i) -> (i, x) :: (List.remove_assoc i l) |> wrap_assoc |> of_list
+            | _ -> raise TypeError))))
+
     else
       Base.base
   end
