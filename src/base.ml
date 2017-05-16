@@ -21,22 +21,6 @@ let bool_binop op =
      | _ -> raise TypeError)
 | _ -> raise TypeError
 
-let rec to_list = function
-  | CConstructor ("[]", _) -> []
-  | CConstructor ("(::)", [h; t]) -> h :: (to_list t)
-  | _ -> raise TypeError
-
-let rec of_list = function
-  | [] -> CConstructor ("[]", [])
-  | h :: t -> CConstructor ("(::)", [h; of_list t])
-
-let unwrap_assoc = List.map (function
-  | CTuple [CConst (Int i); x] -> (i, x)
-  | _ -> raise TypeError)
-
-let wrap_assoc = List.map (function
-  | (i, x) -> CTuple [CConst (Int i); x])
-
 let base =
   List.fold_left (fun e (id, v) -> Env.add id v e) Env.empty <|
     [ "ref", meta (fun x -> CRef (ref x))
@@ -52,28 +36,6 @@ let base =
     ; "aMake", meta (function CConst (Int n) when n >= 0 -> CArray (Array.make n (CConst (Int 0))) | _ -> raise TypeError)
     ; "print_string", meta (function CConst (String s) -> print_string s; CConst Unit | _ -> raise TypeError)
     ; "print_endline", meta (function CConst (String s) -> print_endline s; CConst Unit | _ -> raise TypeError)
-
-    ; "read", meta (fun a -> meta (fun b ->
-        let l = to_list a |> unwrap_assoc in
-        match b with
-          | CConst (Int i) -> List.assoc i l
-          | _ -> raise TypeError))
-
-    ; "empty", meta (function
-        | CConst (Unit) -> of_list []
-        | _ -> raise TypeError)
-
-    ; "allocate", meta (fun a -> meta (fun x ->
-        let l = to_list a |> unwrap_assoc in
-        let i = List.length l in
-        CTuple [CConst (Int i); (i, x) :: l |> wrap_assoc |> of_list]))
-
-    ; "modify", meta (fun a -> meta (fun b -> meta (fun x ->
-        let l = to_list a |> unwrap_assoc in
-        match b with
-          | CConst (Int i) -> (i, x) :: (List.remove_assoc i l) |> wrap_assoc |> of_list
-          | _ -> raise TypeError)))
-
     ; "!", meta (function CRef x -> !x | _ -> raise TypeError)
     ; ":=", meta (function 
         | CRef r -> meta (fun x -> r := x; CConst Unit)
