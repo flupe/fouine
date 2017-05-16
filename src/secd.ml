@@ -130,7 +130,6 @@ let run code env =
         aux (c', e' :: q, v :: s, ex)
         
     | [], e :: q, SVal v :: s, ex -> v
-    | _, _, _, _ -> CConst (Unit)
-    | c, _, _, _ -> Beautify.string_of_bytecode c |> print_endline; failwith "wtf" in
-
+    | _, _, _, _ -> CConst (Unit) in
+    
   aux (code, [env], [], [])
