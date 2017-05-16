@@ -50,8 +50,9 @@ let rec string_of_value = function
   | CConstructor (name, []) -> name
   | CConstructor (name, vl) ->
       name ^ " (" ^ (String.concat ", " (List.map string_of_value vl)) ^ ")"
-  | CMetaClosure _ | CClosure _ | CBClosure _ | CBRec _ -> red "<fun>"
-  | CRec _ -> red "<cycle>"
+  | CMetaClosure _ -> red "<builtin>"
+  | CClosure _ | CBClosure _ -> red "<fun>"
+  | CRec _ | CBRec _ -> red "<cycle>"
 
 (* 
 and string_list = function
@@ -280,17 +281,6 @@ let rec string_of_type ?clean:(c = false) t =
       end
   in aux false t
 
-let log (name : string option) (t : Ast.tp) (v : Shared.value) = 
-  let prefix =
-    match name with
-    | Some id -> blue "val " ^ id
-    | None -> "-"
-  in
-  Printf.printf "%s : %s = %s\n" prefix (string_of_type t ~clean:false) (string_of_value v)
-
-let log_value (v : Shared.value) =
-  Printf.printf "- : %s = %s\n" (string_of_value_type v) (string_of_value v)
-
 (* string_of_instruction : instruction -> string *)
 let rec string_of_instruction = function
   | BConst c -> red "BConst" ^ " (" ^ string_of_const c ^ ")"
@@ -319,3 +309,24 @@ and string_of_bytecode = function
   | h :: [] ->
       string_of_instruction h
   | [] -> ""
+
+let log (name : string option) (t : Ast.tp) (v : Shared.value) = 
+  let prefix =
+    match name with
+    | Some id -> blue "val " ^ id
+    | None -> "-"
+  in
+  Printf.printf "%s : %s = %s\n" prefix (string_of_type t ~clean:false) (string_of_value v);
+
+  match v with
+    | CClosure (pat, e, _) ->
+        Fun (pat, e) |> print_ast 
+    | CRec (id, e, _) ->
+        Fun (PField id, e) |> print_ast 
+    | CBClosure (_, b, _) 
+    | CBRec (_, _, b, _) ->
+        string_of_bytecode b |> print_endline
+    | _ -> ()
+
+let log_value (v : Shared.value) =
+  Printf.printf "- : %s = %s\n" (string_of_value_type v) (string_of_value v)
