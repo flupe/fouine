@@ -26,7 +26,7 @@ let () =
 
   let speclist =
     [ "-debug", Arg.Set debug, "Display the parsed input."
-    ; "-machine", Arg.Set machine, "Compile and run the input from SECD."
+    ; "-machine", Arg.Set machine, "Use the SECD instead of the standard Interpreter."
     ; "-interm", Arg.Set_string interm, "Compile input to the given output file."
     ; "-from", Arg.Set_string from, "Run bytecode from the given output file."
     ; "-E", Arg.Set no_exceptions, "Transform the input to fouine code without exceptions."
@@ -47,7 +47,7 @@ let () =
     List.fold_right combine_stmt prog (Const Unit)
   in
 
-  (* Compilation *)
+  (* Compile to a given bytecode file. *)
   if !interm <> "" then begin
     let prog = parse_input () in
     let combined = combine_prog prog in
@@ -64,7 +64,7 @@ let () =
     end;
 
     let chan = open_out_bin !interm in
-    List.iter (fun bytes -> Marshal.to_channel chan bytes []) bytecode;
+    Marshal.to_channel chan bytecode [];
     close_out chan
   end
 
@@ -73,38 +73,19 @@ let () =
     let chan = open_in_bin !from in
     let bytecode = (Marshal.from_channel chan : Bytecode.bytecode) in
 
+    if !debug then begin
+      print_newline ();
+      print_endline <| bold "Input bytecode:";
+      print_endline <| Beautify.string_of_bytecode bytecode;
+    end;
+
     try
-      Secd.run bytecode |> ignore
+      Secd.run bytecode Base.base |> ignore
     with
       | UncaughtError c -> print_endline <| red "[ERROR]" ^ " Uncaught exception: " ^ Beautify.string_of_value c ^ "."
       | _ -> print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
 
     close_in chan
-  end
-
-  (* Compile the input, and run the bytecode on the SECD machine. *)
-  else if !machine then begin
-    let prog = parse_input () in
-    let combined = combine_prog prog in
-    let _ = Infer.type_of !Infer.env combined in
-    let bytecode = Compiler.compile <| combined in
-
-    if !debug then begin
-      print_newline ();
-      print_endline <| bold "Formatted AST:";
-      Beautify.print_ast combined;
-      print_newline ();
-      print_endline <| bold "Compiled bytecode:";
-      print_endline <| Beautify.string_of_bytecode bytecode;
-      print_newline ();
-      print_endline <| bold "Standard output:";
-    end;
-
-    try
-      Secd.run bytecode |> ignore
-    with
-      | UncaughtError c -> print_endline <| red "[ERROR]" ^ " Uncaught exception: " ^ Beautify.string_of_value c ^ "."
-      | _ -> print_endline <| red "[ERROR]" ^ " The SECD machine ended prematurely.";
   end
 
   (* Start an interpretation REPL. *)
@@ -115,6 +96,8 @@ let () =
        * we use a simpler interpreter *)
       if !no_exceptions || !no_ref then
         Simpinterp.make_interp !no_exceptions !no_ref
+      else if !machine then
+        Machine.make_interp !debug        
       else
         (module Interpreter : Shared.Interp)
     end in
@@ -147,7 +130,7 @@ let () =
 
       | TypeDef (params, name, decl) ->
           Infer.declare_type name params decl;
-          print_endline ("Type " ^ name ^ " was defined")
+          print_endline ("Type " ^ name ^ " was defined.")
 
     in
 

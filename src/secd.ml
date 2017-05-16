@@ -8,7 +8,7 @@ type stack_value
   | SEnv of value Env.t
   | SEncap of bytecode
 
-(** run : Bytecode.bytecode -> unit
+(** run : Bytecode.bytecode -> Shared.Env -> unit
   
   Runs a given SECD bytecode, as specified in the `Bytecode` module.
   Raises an ExecutionError if anything goes wrong.
@@ -22,7 +22,7 @@ type stack_value
     Each item in the stack is the combination of a pattern that the exception must
     match in order to be catched, of code that will be executed by the machine if
     the exception is catched, and the environment when the handler was defined. *)
-let run code =
+let run code env =
   let rec aux = function
     | BConst c' :: c, e, s, ex ->
         aux (c, e, (SVal (CConst c')) :: s, ex)
@@ -33,6 +33,29 @@ let run code =
           | _ -> raise TypeError in
         let (a, b) = list_split n s in
         aux (c, e, (SVal (CTuple (List.map unwrap a))) :: b, ex)
+
+    | BArray n :: c, e, s, ex ->
+        let unwrap = function
+          | SVal x -> x
+          | _ -> raise TypeError in
+        let (a, b) = list_split n s in
+        aux (c, e, (SVal (CArray (List.map unwrap a |> Array.of_list))) :: b, ex)
+
+    | BConstructor (id, n) :: c, e, s, ex ->
+        let unwrap = function
+          | SVal x -> x
+          | _ -> raise TypeError in
+
+        let (a, b) = list_split n s in
+        let l = List.map unwrap a in
+
+        let params, _ = List.assoc id !Infer.constructors in
+        let constr = match l, params with
+          | [x], [_] -> CConstructor (id, [x])
+          | _, [_] -> CConstructor (id, [CTuple l])
+          | _ -> CConstructor (id, l) in
+
+        aux (c, e, (SVal constr) :: b, ex)
 
     | BArraySet :: c, e, 
       SVal v :: 
@@ -107,7 +130,7 @@ let run code =
         aux (c', e' :: q, v :: s, ex)
         
     | [], e :: q, SVal v :: s, ex -> v
-    | [], _, _, _ -> CConst (Unit)
-    | _ -> raise ExecutionError in
+    | _, _, _, _ -> CConst (Unit)
+    | c, _, _, _ -> Beautify.string_of_bytecode c |> print_endline; failwith "wtf" in
 
-  aux (code, [Base.base], [], [])
+  aux (code, [env], [], [])

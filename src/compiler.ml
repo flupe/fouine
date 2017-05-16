@@ -16,6 +16,14 @@ let compile e =
         List.rev (List.fold_left (@) [] (List.map (fun x -> aux x) l)) @
         [BTuple (List.length l)]
 
+    | Array l ->
+        List.rev (List.fold_left (@) [] (List.map (fun x -> aux x) l)) @
+        [BArray (List.length l)]
+
+    | Constructor (id, l) ->
+        List.rev (List.fold_left (@) [] (List.map (fun x -> aux x) l)) @
+        [BConstructor (id, List.length l)]
+
     | ArraySet (a, k, v) ->
         aux a @
         aux k @
@@ -66,6 +74,7 @@ let compile e =
        aux a @
        [BRaise]
 
+    | Constraint _ -> []
     | _ ->
         raise UnimplementedError in
 	

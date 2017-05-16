@@ -295,6 +295,8 @@ let log_value (v : Shared.value) =
 let rec string_of_instruction = function
   | BConst c -> red "BConst" ^ " (" ^ string_of_const c ^ ")"
   | BTuple n -> red "BTuple" ^ " (" ^ green (string_of_int n) ^ ")"
+  | BArray n -> red "BArray" ^ " (" ^ green (string_of_int n) ^ ")"
+  | BConstructor (id, n) -> red "BConstructor" ^ " (" ^ cyan id ^ ", " ^ green (string_of_int n) ^ ")"
   | BArraySet -> red "BArraySet"
   | BArrayRead -> red "BArrayRead"
   | BAccess id -> red "BAccess" ^ " (" ^ cyan id ^ ")"

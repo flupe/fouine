@@ -7,6 +7,8 @@ type bytecode =
 and instruction
   = BConst of Ast.constant
   | BTuple of int
+  | BArray of int
+  | BConstructor of string * int
   | BArraySet
   | BArrayRead
   | BAccess of identifier
@@ -20,4 +22,3 @@ and instruction
   | BApply
   | BBranch
   | BReturn
-
