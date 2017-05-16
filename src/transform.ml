@@ -92,7 +92,7 @@ let rec rem_exceptions = function
       make_fn <| Call
         ( rem_exceptions e
         , Tuple
-          [ Fun (PField "x", Call (MatchWith (Var "x", List.map (fun (p, e) -> (p, rem_exceptions e)) matching), def_args))
+          [ Fun (PField "x", MatchWith (Var "x", List.map (fun (p, e) -> (p, Call (rem_exceptions e, def_args))) matching))
           ; Var "kE"
           ])
 

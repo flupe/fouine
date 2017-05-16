@@ -22,11 +22,14 @@ let map f l =
 
 let l = [1; 3; 3; 7; 5; 9; 3; 4; 6];;
 
+print_endline "taille de l : ";
 length l;;
+print_endline "l inversé : ";
 rev l;;
+print_endline "map ((+) 2) l : ";
 map ((+) 2) l;;
 
-let rec split l =
+let rec split l = 
   match l with
   | [] -> [], []
   | x :: [] -> [x], []
@@ -53,3 +56,5 @@ let rec sort l =
       merge (sort a) (sort b)
 ;;
 
+print_endline "sort l :";
+sort l;;

@@ -30,7 +30,7 @@
 %token SQUOTE BAR TYPE OF STAR EOF
 
 %token TRUE FALSE
-%token TRY WITH RAISE E
+%token TRY WITH RAISE
 %token SETREF CONS
 %token DOT LARROW COLON MATCH
 
@@ -274,8 +274,8 @@ expr:
 
   | IF expr THEN expr ELSE expr { IfThenElse ($2, $4, $6) }
   | IF expr THEN expr %prec NOELSE { IfThenElse ($2, $4, Const Unit) }
-  | TRY seq_expr WITH E pattern RARROW seq_expr { TryWith ($2, $5, $7) }
-  | RAISE LPAREN E enclosed RPAREN { Raise $4 }
+  | TRY seq_expr WITH pattern RARROW seq_expr { TryWith ($2, $4, $6) }
+  | RAISE enclosed { Raise $2 }
 
   | MATCH expr WITH pattern_matching { MatchWith ($2, List.rev $4) }
 

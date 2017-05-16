@@ -1,6 +1,7 @@
 open Ast
 open Print
 open Shared
+open Bytecode
 
 let indent = "  "
 
@@ -15,6 +16,7 @@ let rec string_of_value_type = function
     | Bool _ -> yellow "bool"
     | Unit -> magenta "unit"
     | String _ -> cyan "string"
+    | Char _ -> yellow "char"
     end
   | CRef r -> string_of_value_type !r ^ red " ref"
   | CArray _ -> cyan "'a array"
@@ -33,6 +35,7 @@ let string_of_const = function
   | Bool b -> yellow (if b then "true" else "false")
   | Unit -> magenta "()"
   | String s -> cyan ("\"" ^ s ^ "\"")
+  | Char c -> yellow ("\'" ^ Char.escaped c ^ "\'")
 
 let rec string_of_value = function
   | CConst c -> string_of_const c
@@ -63,8 +66,20 @@ let print_constant_with f = function
   | Bool b -> f (yellow (if b then "true" else "false"))
   | Unit -> f (magenta "()")
   | String s -> f (cyan ("\"" ^ s ^ "\""))
+  | Char c -> f (yellow ("\'" ^ Char.escaped c ^ "\'"))
 
 let print_constant = print_constant_with print_string
+
+let rec string_of_pattern = function
+  | PAll -> "_"
+  | PConst c -> string_of_const c
+  | PField id -> id
+  | PTuple pl -> Printf.sprintf "(%s)" (String.concat ", " (List.map string_of_pattern pl))
+  | PConstructor (name, []) -> name;
+  | PConstructor (name, [x]) -> Printf.sprintf "%s %s" name (string_of_pattern x)
+  | PConstructor (name, pl) ->
+      Printf.sprintf "%s (%s)" name (String.concat ", " (List.map string_of_pattern pl))
+  | PConstraint _ -> ""
 
 let rec print_pattern = function
   | PAll -> print_string "_"
@@ -226,6 +241,7 @@ and print_aux env i o e =
       esc true (o ^ indent) e;
       print_string " with";
       List.iter (fun (pat, e) ->
+        print_newline ();
         p false (o ^ indent) "| ";
         print_pattern pat;
         print_string " -> ";
@@ -243,6 +259,7 @@ let rec string_of_type ?clean:(c = false) t =
     | TBool -> col yellow "bool"
     | TUnit -> col magenta "unit"
     | TString -> col cyan "string"
+    | TChar -> col yellow "char"
     | TRef t -> Printf.sprintf "%s %s" (aux true t) (col red "ref")
     | TArray t -> Printf.sprintf "%s %s" (aux true t) (col cyan "array")
     | TSum (name, []) -> name
@@ -273,3 +290,30 @@ let log (name : string option) (t : Ast.tp) (v : Shared.value) =
 
 let log_value (v : Shared.value) =
   Printf.printf "- : %s = %s\n" (string_of_value_type v) (string_of_value v)
+
+(* string_of_instruction : instruction -> string *)
+let rec string_of_instruction = function
+  | BConst c -> red "BConst" ^ " (" ^ string_of_const c ^ ")"
+  | BTuple n -> red "BTuple" ^ " (" ^ green (string_of_int n) ^ ")"
+  | BArraySet -> red "BArraySet"
+  | BArrayRead -> red "BArrayRead"
+  | BAccess id -> red "BAccess" ^ " (" ^ cyan id ^ ")"
+  | BEncap code -> red "BEncap" ^ " (" ^ (string_of_bytecode code) ^ ")"
+  | BTry p -> red "BTry" ^ " (" ^ string_of_pattern p ^ ")"
+  | BRaise -> red "BRaise"
+  | BClosure (pattern, code) -> red "BClosure" ^ " (pat, " ^ (string_of_bytecode code) ^ ")"
+  | BRecClosure (f, p, code) -> red "BRecClosure" ^ " (" ^ yellow f ^ ", " ^ string_of_pattern p ^ ", " ^ (string_of_bytecode code) ^ ")"
+
+  | BLet p -> red "BLet" ^ " (" ^ string_of_pattern p ^ ")"
+  | BEndLet -> red "BEndLet"
+  | BApply -> red "BApply"
+  | BBranch -> red "BBranch"
+  | BReturn -> red "BReturn"
+
+(* string_of_bytecode : bytecode -> string *)
+and string_of_bytecode = function
+  | h :: h' :: q ->
+      string_of_instruction h ^ "; " ^ string_of_bytecode (h' :: q)
+  | h :: [] ->
+      string_of_instruction h
+  | [] -> ""

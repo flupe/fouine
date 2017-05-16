@@ -50,6 +50,8 @@ let base =
     ; "prInt", meta (function CConst (Int i) as x -> print_endline <| string_of_int i; x | _ -> raise TypeError)
     ; "prOut", meta (fun x -> Beautify.log_value x; CConst Unit)
     ; "aMake", meta (function CConst (Int n) when n >= 0 -> CArray (Array.make n (CConst (Int 0))) | _ -> raise TypeError)
+    ; "print_string", meta (function CConst (String s) -> print_string s; CConst Unit | _ -> raise TypeError)
+    ; "print_endline", meta (function CConst (String s) -> print_endline s; CConst Unit | _ -> raise TypeError)
 
     ; "read", meta (fun a -> meta (fun b ->
         let l = to_list a |> unwrap_assoc in

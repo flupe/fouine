@@ -18,5 +18,7 @@ let rec size t =
 
 let t = Node (5, Node (3, Node (1, Leaf, Leaf), Leaf), Node (7, Node (2, Leaf, Leaf), Leaf));;
 
+print_string "hauteur de l'arbre : ";
 height t;;
+print_string "taille de l'arbre : ";
 size t;;

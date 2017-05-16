@@ -31,10 +31,9 @@ let () =
     ; "-from", Arg.Set_string from, "Run bytecode from the given output file."
     ; "-E", Arg.Set no_exceptions, "Transform the input to fouine code without exceptions."
     ; "-R", Arg.Set no_ref, "Transform the input to fouine code without references."
-    ; "-o", Arg.Set_string source, "Execute a given fouine source file."
     ]
 
-  in Arg.parse speclist ignore "Fouine REPL 2017";
+  in Arg.parse speclist ((:=) source) "Fouine REPL 2017";
 
   (* Combine a given program into a single expression. *)
   let combine_stmt a b = match a with
@@ -46,11 +45,6 @@ let () =
 
   let combine_prog prog =
     List.fold_right combine_stmt prog (Const Unit)
-  in
-
-  let shit_prog = function
-    | Expr e :: q -> e
-    | _ -> raise UnsupportedError
   in
 
   (* Compilation *)
@@ -66,7 +60,7 @@ let () =
       Beautify.print_ast combined;
       print_newline ();
       print_endline <| bold "Compiled bytecode:";
-      print_endline <| Bytecode.string_of_bytecode bytecode;
+      print_endline <| Beautify.string_of_bytecode bytecode;
     end;
 
     let chan = open_out_bin !interm in
@@ -101,7 +95,7 @@ let () =
       Beautify.print_ast combined;
       print_newline ();
       print_endline <| bold "Compiled bytecode:";
-      print_endline <| Bytecode.string_of_bytecode bytecode;
+      print_endline <| Beautify.string_of_bytecode bytecode;
       print_newline ();
       print_endline <| bold "Standard output:";
     end;
@@ -194,21 +188,9 @@ let () =
       flush stdout;
 
       let prog = parse_input () in
+
       try
-        let combined = shit_prog prog in
-        combined
-        |> Beautify.print_ast;
-
-        combined
-        |> Transform.rem_ref
-        |> Beautify.print_ast;
-
-        Expr (combined
-        |> Transform.rem_ref)
-        |> exec_stmt;
-
-      (*try
-        run_prog prog*)
+        run_prog prog
       with InterpretationError ->
         print_endline <| err "[ERROR]" ^ " The interpreter ended prematurely.";
     done 

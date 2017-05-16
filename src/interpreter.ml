@@ -12,12 +12,22 @@ let bind id v =
   env := Env.add id v !env
 
 let eval k kE e : unit =
-  let rec step env k kE = function
+  let rec forward env k kE = function
+    | CRec (name, e, env) as c -> step (Env.add name c env) k kE e
+    | x -> k x
+
+  and reduce env k kE = function
+    | CRec _ as c ->
+        let k' x =
+          reduce env k kE  x
+        in forward env k' kE c
+    | x -> k x
+
+  and step env k kE = function
     | Const c -> k <| CConst c
 
     | Var id ->
-        k <|
-        if Env.mem id env then Env.find id env
+        if Env.mem id env then k <| Env.find id env
         else raise InterpretationError
 
     | IfThenElse (cond, truthy, falsy) ->
@@ -30,8 +40,10 @@ let eval k kE e : unit =
 
     | Let (p, e, fn) ->
         let k' c =
-          let env' = match_pattern env p c in
-            step env' k kE fn
+          let k' x =
+            let env' = match_pattern env p x in
+              step env' k kE fn
+          in reduce env k' kE c
         in step env k' kE e
 
     (* no pattern matching for the 1rst token of recursive definitions *)

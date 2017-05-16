@@ -26,7 +26,6 @@ rule token = parse
   | "with" { WITH }
   | "match" { MATCH }
   | "raise" { RAISE }
-  | 'E' { E }
   | "rec" { REC }
   | "mod" { MOD }
   | "type" { TYPE }

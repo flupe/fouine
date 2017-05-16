@@ -21,6 +21,8 @@ let env : env ref = ref
   ; "prInt", TInt @>> TInt
   ; "prOut", ??"a" @>> TUnit
   ; "aMake", TInt @>>  TArray TInt
+  ; "print_string", TString @>>  TUnit
+  ; "print_endline", TString @>>  TUnit
 
   ; "+",   TInt @>> TInt @>> TInt
   ; "-",   TInt @>> TInt @>> TInt
@@ -58,6 +60,7 @@ let env : env ref = ref
 let constructors = ref
   [ "(::)", ([??"a"; "list" % ??"a"], "list" % ??"a")
   ; "[]", ([], "list" % ??"a")
+  ; "E", ([TInt], "exn" %% [])
   ]
 
 let types = ref
@@ -66,6 +69,7 @@ let types = ref
   ; "unit", ([], TUnit)
   ; "string", ([], TString)
   ; "char", ([], TChar)
+  ; "exn", ([], "exn" %% [])
   ; "array", (["a"], TArray ??"a")
   ; "ref", (["a"], TRef ??"a")
   ; "list", (["a"], "list" % ??"a")
@@ -310,6 +314,7 @@ let rec type_of env expr =
         unify t_fun (TArrow (t_var, t_ret));
         t_ret
 
+    (* todo: restrict type to exn *)
     | TryWith (a, p, b) ->
         let t_a = infer env level a in
         let t_p = new_var level in
@@ -326,7 +331,9 @@ let rec type_of env expr =
         ) matching;
         t_r
 
-    | Raise t -> new_var level
+    | Raise t ->
+        unify ("exn" %% []) (infer env level t);
+        new_var level
 
     | Seq (a, b) ->
         let t_b = infer env level b in
@@ -421,3 +428,5 @@ let type_of_stmt = function
 
   | Expr e ->
       type_of !env e
+
+  | _ -> TUnit
