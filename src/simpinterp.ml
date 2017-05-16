@@ -125,8 +125,9 @@ let rec eval_expr env expr =
     | Raise _ -> failwith "Exceptions not supported"
   in aux env expr
 
-let make_interp exceptions references = (module struct
-  (* we have to edit our default builtings to take k and kE as arguments *)
+let make_interp debug exceptions references = (module struct
+  (* If we use transforms, we need to edit our built-ins to
+     change their signatures. *)
   let env = ref begin
     if exceptions then
       let rec rem t v =
@@ -142,25 +143,44 @@ let make_interp exceptions references = (module struct
         | _, x -> x
       in
       Env.mapi (fun name v -> rem (List.assoc name !Infer.env) v ) Base.base
+    else if references then
+      Base.base
     else
       Base.base
   end
 
   let eval k kE e =
+    if debug then begin
+      print_endline <| bold "Source AST:";
+      Beautify.print_ast e;
+      print_newline ();
+    end;
+
     (* if we apply the no_exceptions transform, we add some functions to the environment *)
     if exceptions then begin
+      print_endline <| bold "Transformed AST:";
+
       env := !env
         |> Env.add "k" (CMetaClosure (fun x -> k x; CConst Unit))
         |> Env.add "kE" (CMetaClosure (fun x -> kE x; CConst Unit));
       let e' = Call (Transform.rem_exceptions e, Tuple [Var "k"; Var "kE"]) in
       Beautify.print_ast e';
+      print_newline ();
+      
+      if debug then
+        print_endline <| bold "Result:";
+
       ignore <| eval_expr !env e'
     end
 
     (* transformation on references *)
     else if references then begin
+      print_endline <| bold "Transformed AST:";
+
       let e' = Transform.rem_ref e in
       Beautify.print_ast e';
+      print_newline ();
+
       k (eval_expr !env e')
     end
 

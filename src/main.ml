@@ -56,7 +56,7 @@ let () =
 
     if !debug then begin
       print_newline ();
-      print_endline <| bold "Formatted AST:";
+      print_endline <| bold "Source AST:";
       Beautify.print_ast combined;
       print_newline ();
       print_endline <| bold "Compiled bytecode:";
@@ -92,14 +92,13 @@ let () =
   else begin
     (* We fetch the module with which to interpret our input. *)
     let (module Interp) = begin
-      (* if we plan on doing transformations on our code
-       * we use a simpler interpreter *)
+      (* If we're doing code transformations, we're using a simpler interpreter. *)
       if !no_exceptions || !no_ref then
-        Simpinterp.make_interp !no_exceptions !no_ref
+        Simpinterp.make_interp !debug !no_exceptions !no_ref
       else if !machine then
         Machine.make_interp !debug        
       else
-        (module Interpreter : Shared.Interp)
+        Interpreter.make_interp !debug
     end in
 
     (* Execute a given statement. *)

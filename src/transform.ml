@@ -279,39 +279,9 @@ let rem_ref ast =
               , Fun
                   ( PField "_s"
                   , Call (Call (Var "allocate", Var "_s"), Var "_v") ))
-          , Call 
-              ( rem_ref_aux ast
-              , Call (Var "empty", Const Unit) ))))
-
-(*let rem_ref ast =
-  Let
-    ( PField "!"
-    , Fun
-        ( PField "_r"
-        , Fun
-            ( PField "_s"
-            , Tuple 
-                [ Call (Call (Var "read", Var "_s"), Var "_r")
-                ; Var "_s"] ))
-    , Let
-        ( PField ":="
-        , Fun
-          ( PField "_r"
-          , Fun
-              ( PField "_s",
-                Fun
-                  ( PField "_v"
-                  , Fun
-                      ( PField "_s"
-                      , Tuple 
-                          [ Const Unit
-                          ; Call 
-                              (Call (Call (Var "modify", Var "_s"), Var "_r"), Var "_v") ]))))
-        , Let 
-          ( PField "ref"
-          , Fun
-              ( PField "_v"
-              , Fun
-                  ( PField "_s"
-                  , Call (Call (Var "allocate", Var "_s"), Var "_v") ))
-          , ast )))*)
+          , Let
+              ( PTuple [PField "_v"; PAll]
+              , Call 
+                  ( rem_ref_aux ast
+                  , Call (Var "empty", Const Unit) )
+              , Var "_v" ))))

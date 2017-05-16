@@ -94,8 +94,6 @@ let base =
     ; "<>", gen_bool_binop (<>)
     ; "&&", bool_binop (&&)
     ; "||", bool_binop (||)
-    (* ; "|>", meta (fun x -> meta (function CMetaClosure f -> f x | _ -> raise TypeError))
-    ; "@@", meta (function CMetaClosure f -> meta (fun x -> f x) | _ -> raise TypeError) *)
     ; "@", meta (fun a -> meta (fun b ->
         let rec aux = function
           | CConstructor ("[]", _) -> b
