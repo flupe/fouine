@@ -42,6 +42,8 @@ rule token = parse
   | ')' { RPAREN }
   | '[' { LBRACKET }
   | ']' { RBRACKET }
+  | "[|" { ALBRACKET }
+  | "|]" { ARBRACKET }
   | '-' { MINUS }
   | '*' { STAR }
 

@@ -23,7 +23,7 @@
 %token <string> INFIX5
 
 %token <int> INT
-%token LPAREN RPAREN LBRACKET RBRACKET BEGIN END SEMI
+%token LPAREN RPAREN LBRACKET RBRACKET ALBRACKET ARBRACKET BEGIN END SEMI
 %token LET IN IF THEN ELSE DELIM FUN RARROW REC
 %token MINUS MOD EQ
 %token UNDERSCORE COMMA
@@ -38,6 +38,8 @@
 
 %type <Ast.prog> main
 
+%nonassoc WITH
+%left BAR
 (* %nonassoc IN *)
 (* %nonassoc IDENT *)
 %nonassoc below_SEMI
@@ -47,7 +49,7 @@
 %right SETREF LARROW
 %nonassoc below_COMMA
 %left COMMA
-(* %right RARROW *)
+(*%right RARROW*)
 %left EQ INFIX5    (* =... <... >... |... &... $... != *)
 %right INFIX4      (* @... ^... *)
 %right CONS
@@ -59,7 +61,7 @@
 %nonassoc INFIX0   (* #... *)
 %nonassoc DOT
 %nonassoc PREFIX
-
+(*%nonassoc LPAREN RPAREN*)
 
 %%
 
@@ -69,8 +71,12 @@ boolean:
   | TRUE { Bool true }
   | FALSE { Bool false }
 
+opt_bar:
+    /* empty */                                 { () }
+  | BAR                                         { () }
+
 comma_separated_type_spec:
-  | type_spec { [$1] }
+  | type_spec COMMA type_spec { $3 :: $1 :: [] }
   | comma_separated_type_spec COMMA type_spec { $3 :: $1 }
 
 star_separated_type_spec:
@@ -121,7 +127,6 @@ pattern:
       )
   }
 
-
 pattern_list:
   | l = nonempty_list(pattern_enclosed) { l }
 
@@ -167,7 +172,7 @@ enclosed:
   | LBRACKET semi_expr_list RBRACKET {
       List.fold_left (fun e x -> Constructor ("(::)", [x; e])) (Constructor ("[]", [])) $2
     }
-  | LBRACKET BAR semi_expr_list BAR RBRACKET { Array (List.rev $3) }
+  | ALBRACKET semi_expr_list ARBRACKET { Array (List.rev $2) }
   | ident { Var $1 }
   | PREFIX enclosed { mk_prefix $1 $2 }
   | constant { Const $1 }
@@ -237,10 +242,12 @@ comma_list:
   | comma_list COMMA expr { $3 :: $1 }
   | expr COMMA expr { [$3; $1] }
 
-pattern_matching:
-  | pattern RARROW seq_expr { [($1, $3)] }
-  | BAR pattern RARROW seq_expr { [($2, $4)] }
-  | pattern_matching BAR pattern RARROW seq_expr { ($3, $5) :: $1 }
+match_cases:
+  | match_case { [$1] }
+  | match_cases BAR match_case { $3 :: $1 }
+
+match_case:
+  | pattern RARROW seq_expr { ($1, $3) }
 
 expr:
   | comma_list %prec below_COMMA { Tuple (List.rev $1) }
@@ -277,7 +284,7 @@ expr:
   | TRY seq_expr WITH pattern RARROW seq_expr { TryWith ($2, $4, $6) }
   | RAISE enclosed { Raise $2 }
 
-  | MATCH expr WITH pattern_matching { MatchWith ($2, List.rev $4) }
+  | MATCH seq_expr WITH opt_bar match_cases { MatchWith ($2, List.rev $5) }
 
   | array_access LARROW expr {
       let arr, key = $1 in
